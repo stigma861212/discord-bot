@@ -36,21 +36,19 @@ const checkAndNotify = async (client: Client<boolean>) => {
         const youtuberServerCount: Record<string, Set<ServerInfo>> = {};
 
         for (const subscribe of subscribelist) {
-            const { youtuber_id, server_id: server_id, channel_id } = subscribe;
+            const { youtuber_id, server_id, channel_id } = subscribe;
             youtuberServerCount[youtuber_id] ||= new Set<ServerInfo>();
             youtuberServerCount[youtuber_id].add({ server_id: server_id, channel_id });
         }
 
         for (const ytID in youtuberServerCount) {
             const serverList = youtuberServerCount[ytID];
-            const url = await getLatestNewVideo(ytID);
-
-            if (url != undefined) {
-                for (const server of serverList) {
-                    // send the url to each server connect channel
-                    const channel = await client.channels.fetch(server.channel_id) as TextChannel;
-                    channel.send(`${url}`);
-                }
+            const videoList = await getLatestNewVideo(ytID);
+            if (videoList.length == 0) return;
+            for (const server of serverList) {
+                // send the url to each server connect channel
+                const channel = await client.channels.fetch(server.channel_id) as TextChannel;
+                channel.send(videoList.join("\n"));
             }
         }
     }

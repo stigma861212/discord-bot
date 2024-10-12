@@ -2,6 +2,7 @@ import { loadCommands, loadEvents } from "./loader";
 import dotenv from "dotenv";
 import ClientDataManager from "./clientDataManager";
 import { initDB, closeDB } from "./database";
+import { getLatestNewVideo } from "./youTubeDataAPIv3";
 dotenv.config();
 
 initDB();
