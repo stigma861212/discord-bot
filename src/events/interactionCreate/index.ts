@@ -1,4 +1,4 @@
-import { BaseInteraction, Events } from "discord.js";
+import { BaseInteraction, Events, User } from "discord.js";
 import ClientDataManager from "../../clientDataManager";
 import { OptionData, OptionDataType as OptionDataCollectType, OptionType } from "../../type";
 
@@ -35,6 +35,9 @@ export const action = async (interaction: BaseInteraction) => {
                 break;
             case OptionType.BOOLEAN:
                 optionsData.push(interaction.options.getBoolean(item.name) as boolean);
+                break;
+            case OptionType.USER:
+                optionsData.push(interaction.options.getUser(item.name) as User);
                 break;
         }
     }
