@@ -51,11 +51,10 @@ export const getLatestNewVideo = async (id: string) => {
         }
     }).then((response) => {
         const videos = response.data.items;
-        // console.log("videos: ", videos);
         if (videos.length < 1) return;
         for (let index = 0; index < videos.length; index++) {
             const nowVideo = videos[index];
-            if (nowVideo.snippet.liveBroadcastContent) continue;
+            if (nowVideo.snippet.liveBroadcastContent != "none") continue;
             const publishedAt = new Date(nowVideo.snippet.publishedAt);
             const now = new Date();
             const timeDifferenceInMinutes = (now.getTime() - publishedAt.getTime()) / (1000 * 60);
