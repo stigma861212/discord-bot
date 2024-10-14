@@ -1,4 +1,4 @@
-import { ChatInputCommandInteraction } from "discord.js";
+import { ChatInputCommandInteraction, DMChannel, MediaChannel, TextChannel, VoiceChannel } from "discord.js";
 import { createCommand } from "../command";
 import { Command, CommandOption, CommandOptionType, OptionDataType } from "../../type";
 
@@ -34,7 +34,25 @@ export const command = createCommand(initCommandInfo.name, initCommandInfo.descr
 
 /**Command action */
 export const action = async (data: ChatInputCommandInteraction, options: Array<OptionDataType>) => {
-    data.reply(`purge: ${options[0]}`);
+    const channel = data.channel;
+    const deleteAmount = options[0] as number;
+    await data.deferReply({ ephemeral: true });
+    if (channel instanceof TextChannel) {
+        await channel.bulkDelete(deleteAmount, true).then(async (messages) => {
+            await data.followUp({ content: `已成功刪除 ${messages.size} 條訊息` }).then(async () => {
+                setTimeout(async () => {
+                    await data.deleteReply();
+                }, 1500);
+            });
+        });
+    }
+    else {
+        await data.followUp({ content: "該頻道不支持批量刪除訊息，僅支持一般文字頻道。\n如有刪除需求請私訊管理員", ephemeral: true }).then(() => {
+            setTimeout(async () => {
+                await data.deleteReply();
+            }, 10000);
+        });
+    }
 };
 
 /**Get all `setName` string in the command in order  */

@@ -31,7 +31,7 @@ export const createCommand = (name: Readonly<string>, description: Readonly<stri
                         .setDescription(data.description)
                         .setRequired(data.required)
                     if (data.maxValue) option.setMaxValue(data.maxValue);
-                    if (data.minValue) option.setMaxValue(data.minValue);
+                    if (data.minValue) option.setMinValue(data.minValue);
                     return option;
                 });
                 break;
