@@ -59,7 +59,6 @@ export const getLatestNewVideo = async (id: string) => {
             const now = new Date();
             const timeDifferenceInMinutes = (now.getTime() - publishedAt.getTime()) / (1000 * 60);
             if (timeDifferenceInMinutes <= videoThreshold) {
-                console.log(`https://www.youtube.com/watch?v=${nowVideo.id.videoId}`);
                 newVideo.push(`https://www.youtube.com/watch?v=${nowVideo.id.videoId}`);
             }
             else {
@@ -75,6 +74,6 @@ export const getLatestNewVideo = async (id: string) => {
         console.error('錯誤: 無法查詢影片資訊', error);
         return newVideo;
     });
-
+    console.log(new Date(), "- new upload videos:\n", newVideo);
     return newVideo;
 }
