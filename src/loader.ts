@@ -1,59 +1,28 @@
-import { ChatInputCommandInteraction, Client, Collection, REST, Routes, SlashCommandBuilder } from "discord.js";
+import { ChatInputCommandInteraction, Client, Collection, ContextMenuCommandBuilder, REST, Routes, SlashCommandBuilder } from "discord.js";
 import path from "path";
 import { promises as fs } from 'fs';
 import ClientDataManager from "./clientDataManager";
-import { CommandModule } from "./type";
+import { ContextMenuCommandModule, SlashCommandModule } from "./type";
 
 /**Register slash commands */
-const registerSlashCommands = async (commands: SlashCommandBuilder[]) => {
-    const rest = new REST({ version: "10" }).setToken((process.env.DISCORD_TOKEN) as string);
-    await rest.put(
-        Routes.applicationCommands(
-            process.env.APPLICATION_ID as string
-        ),
-        {
-            body: commands,
-        }
-    )
+const registerCommands = async (commands: Array<SlashCommandBuilder | ContextMenuCommandBuilder>) => {
+    const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN as string);
+    try {
+        console.log("Registering commands...");
+
+        const response = await rest.put(
+            Routes.applicationCommands(
+                process.env.APPLICATION_ID as string,
+            ),
+            { body: commands }
+        );
+        console.log("Successfully registered commands:", response);
+    } catch (error) {
+        console.error("Error registering commands:", error);
+    }
 }
 
-/**Load commands files*/
-export const loadCommands = async () => {
-    const commands: SlashCommandBuilder[] = [];
-    const actions: Collection<string, (data: ChatInputCommandInteraction) => Promise<void>> = new Collection();
-    /**Commands directory path */
-    const commandsDir = path.join(__dirname, '../src/commands');
-    try {
-        /**To read all files and folders under the commands directory */
-        const items = await fs.readdir(commandsDir, { withFileTypes: true });
-        /**Filter folder */
-        const folders = items.filter(item => item.isDirectory());
-        /**Store `index.ts` files path*/
-        const indexFiles: string[] = [];
-        for (const folder of folders) {
-            /**`index.ts` path */
-            const indexPath = path.join(commandsDir, folder.name, 'index.ts');
-            await fs.access(indexPath)
-                .then(() => {
-                    indexFiles.push(indexPath);
-                })
-                .catch(() => {
-                    console.warn(`index.ts not found in folder: ${folder.name}`);
-                });
-        }
-        for (const file of indexFiles) {
-            const command: CommandModule = await import(file)
-            commands.push(command.command);
-            actions.set(command.command.name, command.action);
-        }
-        await registerSlashCommands(commands);
-        ClientDataManager.getInstance().setActions(actions);
-    } catch (error) {
-        console.error('Error reading commands directory:', error);
-    }
-};
-
-/**Load events files*/
+/**Load events files to register action events*/
 export const loadEvents = async (client: Client) => {
     /**Events directory path */
     const eventsDir = path.join(__dirname, '../src/events');
@@ -88,3 +57,90 @@ export const loadEvents = async (client: Client) => {
         console.error('Error reading commands directory:', error);
     }
 }
+
+/**Load commands files to register SlashCommands*/
+export const loadSlashCommands = async (): Promise<SlashCommandBuilder[]> => {
+    const commands: SlashCommandBuilder[] = [];
+    const actions: Collection<string, (data: ChatInputCommandInteraction) => Promise<void>> = new Collection();
+    /**Commands directory path */
+    const commandsDir = path.join(__dirname, '../src/slashCommands');
+    try {
+        /**To read all files and folders under the commands directory */
+        const items = await fs.readdir(commandsDir, { withFileTypes: true });
+        /**Filter folder */
+        const folders = items.filter(item => item.isDirectory());
+        /**Store `index.ts` files path*/
+        const indexFiles: string[] = [];
+        for (const folder of folders) {
+            /**`index.ts` path */
+            const indexPath = path.join(commandsDir, folder.name, 'index.ts');
+            await fs.access(indexPath)
+                .then(() => {
+                    indexFiles.push(indexPath);
+                })
+                .catch(() => {
+                    console.warn(`index.ts not found in folder: ${folder.name}`);
+                });
+        }
+        for (const file of indexFiles) {
+            const command: SlashCommandModule = await import(file)
+            commands.push(command.command);
+            actions.set(command.command.name, command.action);
+        }
+        ClientDataManager.getInstance().setActions(actions);
+    } catch (error) {
+        console.error('Error reading commands directory:', error);
+    }
+    return commands; // 返回命令数组
+};
+
+/**Load commands files to register ContextMenuCommands */
+export const loadContextMenuCommands = async (): Promise<ContextMenuCommandBuilder[]> => {
+    const commands: ContextMenuCommandBuilder[] = [];
+    const actions: Collection<string, (data: ChatInputCommandInteraction) => Promise<void>> = new Collection();
+    /**Commands directory path */
+    const commandsDir = path.join(__dirname, '../src/contextMenuCommands');
+    try {
+        /**To read all files and folders under the commands directory */
+        const items = await fs.readdir(commandsDir, { withFileTypes: true });
+        /**Filter folder */
+        const folders = items.filter(item => item.isDirectory());
+        /**Store `index.ts` files path*/
+        const indexFiles: string[] = [];
+        for (const folder of folders) {
+            /**`index.ts` path */
+            const indexPath = path.join(commandsDir, folder.name, 'index.ts');
+            await fs.access(indexPath)
+                .then(() => {
+                    indexFiles.push(indexPath);
+                })
+                .catch(() => {
+                    console.warn(`index.ts not found in folder: ${folder.name}`);
+                });
+        }
+        for (const file of indexFiles) {
+            const command: ContextMenuCommandModule = await import(file)
+            commands.push(command.command);
+        }
+    } catch (error) {
+        console.error('Error reading commands directory:', error);
+    }
+    return commands; // 返回命令数组
+};
+
+/**Load both Slash Commands and Context Menu Commands and register them */
+export const loadAllCommands = async () => {
+    console.log("loadAllCommands");
+    try {
+        const slashCommands = await loadSlashCommands(); // 加载 Slash Commands
+        const contextMenuCommands = await loadContextMenuCommands(); // 加载 Context Menu Commands
+
+        // 合并两个 commands 数组
+        const allCommands: Array<SlashCommandBuilder | ContextMenuCommandBuilder> = [...slashCommands, ...contextMenuCommands];
+
+        // 调用 registerCommands 进行注册
+        await registerCommands(allCommands);
+    } catch (error) {
+        console.error('Error loading all commands:', error);
+    }
+};

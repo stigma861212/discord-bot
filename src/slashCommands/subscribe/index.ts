@@ -1,11 +1,11 @@
 import { ChatInputCommandInteraction } from "discord.js";
-import { createCommand } from "../command";
-import { Command, CommandOption, CommandOptionType, OptionDataType } from "../../type";
+import { createSlashCommand } from "../../command";
+import { SlashCommand, CommandOption, CommandOptionType, OptionDataType } from "../../type";
 import { setYoutuberSubscribeDB as setYTRSubscribeDB } from "../../database";
 import { getChannelId as getYTChannelId } from "../../youTubeDataAPIv3";
 
 /**Init Command info */
-const initCommandInfo: Readonly<Command> = {
+const initCommandInfo: Readonly<SlashCommand> = {
     name: "subscribe",
     description: "Subscribe to a YouTuber to get notified of new video posts every hour."
 }
@@ -30,7 +30,7 @@ function getOptionsName(): Array<string> {
 }
 
 /**Create command */
-export const command = createCommand(initCommandInfo.name, initCommandInfo.description, initOptionInfoGroup);
+export const command = createSlashCommand(initCommandInfo.name, initCommandInfo.description, initOptionInfoGroup);
 
 /**Command action */
 export const action = async (data: ChatInputCommandInteraction, options: Array<OptionDataType>) => {

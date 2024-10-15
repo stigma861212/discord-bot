@@ -1,14 +1,15 @@
-import { SlashCommandBuilder, SlashCommandIntegerOption, SlashCommandOptionsOnlyBuilder } from "discord.js";
-import { CommandOption, CommandOptionType } from "../type";
+import { ContextMenuCommandBuilder, SlashCommandBuilder, SlashCommandIntegerOption, SlashCommandOptionsOnlyBuilder } from "discord.js";
+import { CommandOption, CommandOptionType } from "./type";
+import ClientDataManager from "./clientDataManager";
 
 /**
- * Create command rules
+ * Create slash command rules
  * @param name command name
  * @param description command description
  * @param optionsData each options name group
  * @returns command
  */
-export const createCommand = (name: Readonly<string>, description: Readonly<string>, optionsData: Readonly<CommandOption[]>) => {
+export const createSlashCommand = (name: Readonly<string>, description: Readonly<string>, optionsData: Readonly<CommandOption[]>) => {
     const command = new SlashCommandBuilder()
         .setName(name)
         .setDescription(description);
@@ -79,4 +80,21 @@ export const createCommand = (name: Readonly<string>, description: Readonly<stri
     });
 
     return command;
+}
+
+export const createContextMenuCommand = (name: Readonly<string>, type: number) => {
+    const command = new ContextMenuCommandBuilder()
+        .setName(name)
+        .setType(type)  // 3 代表 'MESSAGE' 型的上下文菜單命令
+
+    return command;
+}
+
+export const deletetemp = async () => {
+    const commands = await ClientDataManager.getInstance().getClient().application?.commands.fetch();
+    console.log("deletetemp", commands);
+    // commands?.forEach(async command => {
+    //     await ClientDataManager.getInstance().getClient().application?.commands.delete(command.id);
+    // });
+    // console.log("deletetemp done");
 }

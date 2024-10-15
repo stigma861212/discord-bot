@@ -1,9 +1,9 @@
 import { ChatInputCommandInteraction, DMChannel, MediaChannel, TextChannel, User, VoiceChannel } from "discord.js";
-import { createCommand } from "../command";
-import { Command, CommandOption, CommandOptionType, OptionDataType } from "../../type";
+import { createSlashCommand } from "../../command";
+import { SlashCommand, CommandOption, CommandOptionType, OptionDataType } from "../../type";
 
 /**Init Command info */
-const initCommandInfo: Readonly<Command> = {
+const initCommandInfo: Readonly<SlashCommand> = {
     name: "purge",
     description: "Delete a specified number of messages, up to 100."
 }
@@ -36,7 +36,7 @@ function getOptionsName(): Array<string> {
 }
 
 /**Create command */
-export const command = createCommand(initCommandInfo.name, initCommandInfo.description, initOptionInfoGroup);
+export const command = createSlashCommand(initCommandInfo.name, initCommandInfo.description, initOptionInfoGroup);
 
 /**Command action */
 export const action = async (data: ChatInputCommandInteraction, options: Array<OptionDataType>) => {

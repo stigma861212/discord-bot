@@ -1,13 +1,22 @@
-import { Channel, ChatInputCommandInteraction, Events, Role, SlashCommandBuilder, User } from "discord.js";
+import { Channel, ChatInputCommandInteraction, ContextMenuCommandBuilder, Events, Role, SlashCommandBuilder, User } from "discord.js";
 
-/**Settings command name and effect */
-export type CommandModule = {
+/**Settings slash command name and effect */
+export type SlashCommandModule = {
     /**command name */
     command: SlashCommandBuilder;
     /**command effect */
     action: (data: ChatInputCommandInteraction) => Promise<void>;
     /**command options*/
     actionOption: Array<string>
+};
+
+export type ContextMenuCommandModule = {
+    /**command name */
+    command: ContextMenuCommandBuilder;
+    // /**command effect */
+    // action: (data: ChatInputCommandInteraction) => Promise<void>;
+    // /**command options*/
+    // actionOption: Array<string>
 };
 
 export type EventMoudle = {
@@ -39,14 +48,19 @@ export enum OptionType {
     MENTIONABLE = 9,
 }
 
+export type ContextMenuCommand = {
+    name: string;
+    type: number;
+};
+
 export type OptionDataType = string | number | boolean | Channel | Role | User;
 
-export type Command = {
+export type SlashCommand = {
     name: string;
     description: string;
 };
 
-export type CommandOption = Command & {
+export type CommandOption = SlashCommand & {
     required: boolean;
     type: CommandOptionType
     maxValue?: number;

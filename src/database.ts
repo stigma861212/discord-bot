@@ -71,7 +71,7 @@ function startYoutuberSubscribeDB(): BetterSqlite3.Database {
         youtuber_url TEXT NOT NULL,
         youtuber_id TEXT NOT NULL,
         channel_id TEXT NOT NULL,
-        FOREIGN KEY (server_id) REFERENCES Guild(server_id),
+        FOREIGN KEY (server_id) REFERENCES Guild(server_id) ON DELETE CASCADE,
         UNIQUE (server_id, youtuber_url)
     )`);
 

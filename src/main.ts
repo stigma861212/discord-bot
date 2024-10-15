@@ -1,17 +1,25 @@
-import { loadCommands, loadEvents } from "./loader";
+import { loadSlashCommands, loadEvents, loadContextMenuCommands, loadAllCommands } from "./loader";
 import dotenv from "dotenv";
 import ClientDataManager from "./clientDataManager";
 import { initDB, closeDB } from "./database";
 import { getLatestNewVideo } from "./youTubeDataAPIv3";
+import { deletetemp } from "./command";
+
 dotenv.config();
 
-initDB();
+/**enter */
+const mainStart = async () => {
+    initDB();
+    /**discord client */
+    const client = ClientDataManager.getInstance().getClient();
+    await loadAllCommands();
+    loadEvents(client);
+};
 
-/**discord client */
-const client = ClientDataManager.getInstance().getClient();
+mainStart();
 
-loadCommands();
-loadEvents(client);
+// TODO: 固定時間檢查機器人當前所在所有的伺服器來對DB做一次資料清理
+
 
 /**Catch close server to close db */
 process.on('SIGINT', () => {
