@@ -8,7 +8,7 @@ export const initDB = () => {
 }
 
 /**Insert id data */
-export const insertDB = (server_id: string, server_name: string, channel_id: string) => {
+export const insertGuildDB = (server_id: string, server_name: string, channel_id: string) => {
     const db = startGuildDB();
 
     const insertStmt = db.prepare("INSERT OR IGNORE INTO Guild (server_id, server_name, channel_id) VALUES (?, ?, ?)");

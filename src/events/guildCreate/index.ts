@@ -1,6 +1,6 @@
 import { ChannelType, Events, Guild } from "discord.js";
 import { EventMoudle } from "../../type";
-import { insertDB } from "../../database";
+import { insertGuildDB } from "../../database";
 
 export const event: EventMoudle = {
     name: Events.GuildCreate,
@@ -13,7 +13,7 @@ export const action = (guild: Guild) => {
     // console.log("STIGMA 的伺服器:", guild.name);
     // console.log("伺服器頻道id:", guild.systemChannelId);
 
-    insertDB(guild.id, guild.name, guild.systemChannelId as string);
+    insertGuildDB(guild.id, guild.name, guild.systemChannelId as string);
 
     for (const [, channel] of guild.channels.cache) {
         if (channel.type === ChannelType.GuildText) {
