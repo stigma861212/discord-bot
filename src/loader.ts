@@ -8,7 +8,7 @@ import { ContextMenuCommandModule, SlashCommandModule } from "./type";
 const registerCommands = async (commands: Array<SlashCommandBuilder | ContextMenuCommandBuilder>) => {
     const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN as string);
     try {
-        console.log("Registering commands...");
+        // console.log("Registering commands...");
 
         const response = await rest.put(
             Routes.applicationCommands(
@@ -16,7 +16,7 @@ const registerCommands = async (commands: Array<SlashCommandBuilder | ContextMen
             ),
             { body: commands }
         );
-        console.log("Successfully registered commands:", response);
+        // console.log("Successfully registered commands:", response);
     } catch (error) {
         console.error("Error registering commands:", error);
     }
@@ -132,7 +132,7 @@ export const loadContextMenuCommands = async (): Promise<ContextMenuCommandBuild
 
 /**Load both Slash Commands and Context Menu Commands and register them */
 export const loadAllCommands = async () => {
-    console.log("loadAllCommands");
+    // console.log("loadAllCommands");
     try {
         const slashCommands = await loadSlashCommands(); // 加载 Slash Commands
         const contextMenuCommands = await loadContextMenuCommands(); // 加载 Context Menu Commands
