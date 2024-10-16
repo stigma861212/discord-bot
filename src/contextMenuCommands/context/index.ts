@@ -4,7 +4,7 @@ import { CommandOption, OptionDataType, ContextMenuCommand } from "../../type";
 
 /**Init Command info */
 const initCommandInfo: Readonly<ContextMenuCommand> = {
-    name: "test",
+    name: "contextmenutest",
     type: 3
 }
 
