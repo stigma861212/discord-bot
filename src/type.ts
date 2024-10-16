@@ -13,10 +13,8 @@ export type SlashCommandModule = {
 export type ContextMenuCommandModule = {
     /**command name */
     command: ContextMenuCommandBuilder;
-    // /**command effect */
-    // action: (data: ChatInputCommandInteraction) => Promise<void>;
-    // /**command options*/
-    // actionOption: Array<string>
+    /**command effect */
+    action: (data: ChatInputCommandInteraction) => Promise<void>;
 };
 
 export type EventMoudle = {

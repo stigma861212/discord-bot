@@ -1,4 +1,4 @@
-import { ChatInputCommandInteraction, Client, Collection, ContextMenuCommandBuilder, REST, Routes, SlashCommandBuilder } from "discord.js";
+import { ChatInputCommandInteraction, Client, Collection, ContextMenuCommandBuilder, MessageContextMenuCommandInteraction, REST, Routes, SlashCommandBuilder } from "discord.js";
 import path from "path";
 import { promises as fs } from 'fs';
 import ClientDataManager from "./clientDataManager";
@@ -61,7 +61,7 @@ export const loadEvents = async (client: Client) => {
 /**Load commands files to register SlashCommands*/
 export const loadSlashCommands = async (): Promise<SlashCommandBuilder[]> => {
     const commands: SlashCommandBuilder[] = [];
-    const actions: Collection<string, (data: ChatInputCommandInteraction) => Promise<void>> = new Collection();
+    const actions: Collection<string, (data: ChatInputCommandInteraction | MessageContextMenuCommandInteraction) => Promise<void>> = new Collection();
     /**Commands directory path */
     const commandsDir = path.join(__dirname, '../src/slashCommands');
     try {
@@ -83,7 +83,7 @@ export const loadSlashCommands = async (): Promise<SlashCommandBuilder[]> => {
                 });
         }
         for (const file of indexFiles) {
-            const command: SlashCommandModule = await import(file)
+            const command = await import(file)
             commands.push(command.command);
             actions.set(command.command.name, command.action);
         }
@@ -97,7 +97,7 @@ export const loadSlashCommands = async (): Promise<SlashCommandBuilder[]> => {
 /**Load commands files to register ContextMenuCommands */
 export const loadContextMenuCommands = async (): Promise<ContextMenuCommandBuilder[]> => {
     const commands: ContextMenuCommandBuilder[] = [];
-    const actions: Collection<string, (data: ChatInputCommandInteraction) => Promise<void>> = new Collection();
+    const actions: Collection<string, (data: ChatInputCommandInteraction | MessageContextMenuCommandInteraction) => Promise<void>> = new Collection();
     /**Commands directory path */
     const commandsDir = path.join(__dirname, '../src/contextMenuCommands');
     try {
@@ -119,9 +119,11 @@ export const loadContextMenuCommands = async (): Promise<ContextMenuCommandBuild
                 });
         }
         for (const file of indexFiles) {
-            const command: ContextMenuCommandModule = await import(file)
+            const command = await import(file)
             commands.push(command.command);
+            actions.set(command.command.name, command.action);
         }
+        ClientDataManager.getInstance().setActions(actions);
     } catch (error) {
         console.error('Error reading commands directory:', error);
     }

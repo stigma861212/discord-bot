@@ -4,8 +4,8 @@ enum V3State {
     CHANNEL = "channels",
     SEARCH = "search"
 }
-/**Get youtube channel id */
-export const getChannelId = async (username: string) => {
+/**Get youtube Username id */
+export const getUsernameId = async (username: string) => {
     const channelURL = process.env.YOUTUBE_V3_URL + V3State.CHANNEL;
 
     return await axios.get(channelURL, {
@@ -27,6 +27,33 @@ export const getChannelId = async (username: string) => {
         console.error('錯誤: 無法查詢頻道ID', error);
         return undefined;
     })
+}
+
+/**Get youtube video Uploader id */
+export const getUploaderId = async (videoId: string) => {
+    try {
+        const response = await axios.get(`https://www.googleapis.com/youtube/v3/videos`, {
+            params: {
+                id: videoId,
+                key: process.env.YOUTUBE_V3_API,
+                part: 'snippet'
+            }
+        });
+
+        const videoData = response.data.items[0];
+        if (videoData) {
+            const uploaderId = videoData.snippet.channelId;
+            console.log(`Uploader ID: ${uploaderId}`);
+            return uploaderId;
+        } else {
+            console.log('Video not found');
+            return undefined;
+        }
+    } catch (error) {
+        console.error('Error fetching video data:', error);
+        return undefined;
+    }
+
 }
 
 /**

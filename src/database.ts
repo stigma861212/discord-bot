@@ -83,6 +83,25 @@ export function getNowYoutuberSubscribeData(): Array<YoutuberSubscribeData> {
     return isTableExists(tableName) ? startYoutuberSubscribeDB().prepare(`SELECT * FROM ${tableName}`).all() as Array<YoutuberSubscribeData> : [];
 }
 
+// 新增一個函數來刪除資料
+export function deleteYoutuberSubscribe(serverId: string, channelId: string): string {
+    try {
+        const db = startYoutuberSubscribeDB();
+        // 先檢查要刪除的資料是否存在
+        const checkStmt = db.prepare(`SELECT * FROM YoutuberSubscribe WHERE server_id = ? AND youtuber_id = ?`);
+        const existingRecord = checkStmt.get(serverId, channelId);
+        if (!existingRecord) return "找不到符合條件的訂閱資料，無法取消訂閱";
+        const stmt = db.prepare(`DELETE FROM YoutuberSubscribe WHERE server_id = ? AND youtuber_id = ?`);
+        stmt.run(serverId, channelId);
+        return "已成功取消訂閱";
+
+    } catch (error) {
+        console.log(error);
+        return "刪除訂閱資料錯誤";
+    }
+
+}
+
 /**
  * Check table exists
  * @param tableName table name

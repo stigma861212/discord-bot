@@ -4,7 +4,7 @@ import { CommandOption, OptionDataType, ContextMenuCommand } from "../../type";
 
 /**Init Command info */
 const initCommandInfo: Readonly<ContextMenuCommand> = {
-    name: "tts",
+    name: "test",
     type: 3
 }
 
@@ -24,8 +24,8 @@ function getOptionsName(): Array<string> {
 export const command = createContextMenuCommand(initCommandInfo.name, initCommandInfo.type);
 
 /**Command action */
-export const action = async (data: ChatInputCommandInteraction, options: Array<OptionDataType>) => {
-    data.reply("tts");
+export const action = async (data: ChatInputCommandInteraction) => {
+    data.reply("這是測試用指令阿阿阿阿阿!禁止!禁止!!!");
 };
 
 /**Get all `setName` string in the command in order  */

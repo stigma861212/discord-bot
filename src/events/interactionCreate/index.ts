@@ -7,12 +7,8 @@ export const event = {
 }
 
 export const action = async (interaction: BaseInteraction) => {
-    // if (!interaction.isChatInputCommand()) return;
-    // console.log("action", action);
-    console.log("action interaction", interaction);
     // 斜線指令
     if (interaction.isChatInputCommand()) {
-        console.log("isChatInputCommand");
         const action = ClientDataManager.getInstance().getActions().get(interaction.commandName);
 
         let optionDataList: Record<string, OptionData> = {};
@@ -20,19 +16,16 @@ export const action = async (interaction: BaseInteraction) => {
         let optionsData: Array<OptionDataCollectType> = [];
 
         const data = interaction.options.data;
-        // console.log("~~~~~~!!!!data:", data);
         data.forEach(element => {
             const name = element.name;
             const type = element.type;
             const value = element.value;
 
             optionDataList[name] = { name, type, value }
-            // console.log("!!!!data:", optionDataList[name])
         });
 
         for (const data in optionDataList) {
             const item = optionDataList[data];
-            // console.log("!!!!!!!!!!item:", item);
             switch (item.type) {
                 case OptionType.STRING:
                     optionsData.push(interaction.options.getString(item.name) as string);
@@ -52,9 +45,9 @@ export const action = async (interaction: BaseInteraction) => {
         if (action != undefined) await action(interaction, optionsData);
     }
     else if (interaction.isMessageContextMenuCommand()) {
-        console.log("isMessageContextMenuCommand");
+        const action = ClientDataManager.getInstance().getActions().get(interaction.commandName);
+        if (action != undefined) await action(interaction, []);
     }
     else if (interaction.isUserContextMenuCommand()) {
-        console.log("isUserContextMenuCommand");
     }
 }

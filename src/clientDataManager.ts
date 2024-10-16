@@ -1,4 +1,4 @@
-import { ChatInputCommandInteraction, Client, Collection, GatewayIntentBits } from "discord.js";
+import { ChatInputCommandInteraction, Client, Collection, GatewayIntentBits, MessageContextMenuCommandInteraction } from "discord.js";
 import { OptionDataType } from "./type";
 
 /**Store client and actions data */
@@ -7,7 +7,7 @@ export default class ClientDataManager {
     /**Discord Client */
     private client: Client<boolean>;
     /**Store all actions */
-    private actions: Collection<string, (data: ChatInputCommandInteraction) => Promise<void>> = new Collection();
+    private actions: Collection<string, (data: ChatInputCommandInteraction | MessageContextMenuCommandInteraction) => Promise<void>> = new Collection();
     /**Store all action options */
     private options: Collection<string, Array<string>> = new Collection();
 
@@ -34,11 +34,11 @@ export default class ClientDataManager {
         return this.client;
     }
     /**Set actions */
-    public setActions(actions: Collection<string, (data: ChatInputCommandInteraction) => Promise<void>>): void {
-        this.actions = actions;
+    public setActions(actions: Collection<string, (data: ChatInputCommandInteraction | MessageContextMenuCommandInteraction) => Promise<void>>): void {
+        this.actions = this.actions.concat(actions);
     }
     /**Get actions */
-    public getActions(): Collection<string, (data: ChatInputCommandInteraction, options: Array<OptionDataType>) => Promise<void>> {
+    public getActions(): Collection<string, (data: ChatInputCommandInteraction | MessageContextMenuCommandInteraction, options: Array<OptionDataType>) => Promise<void>> {
         return this.actions;
     }
 }

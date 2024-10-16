@@ -2,7 +2,7 @@ import { ChatInputCommandInteraction } from "discord.js";
 import { createSlashCommand } from "../../command";
 import { SlashCommand, CommandOption, CommandOptionType, OptionDataType } from "../../type";
 import { setYoutuberSubscribeDB as setYTRSubscribeDB } from "../../database";
-import { getChannelId as getYTChannelId } from "../../youTubeDataAPIv3";
+import { getUsernameId } from "../../youTubeDataAPIv3";
 
 /**Init Command info */
 const initCommandInfo: Readonly<SlashCommand> = {
@@ -36,7 +36,7 @@ export const command = createSlashCommand(initCommandInfo.name, initCommandInfo.
 export const action = async (data: ChatInputCommandInteraction, options: Array<OptionDataType>) => {
     const ytID: string = (options[0] as string).split("@")[1];
     // TODO: 存至DB與監聽yt
-    const channelId: string | undefined = await getYTChannelId(ytID);
+    const channelId: string | undefined = await getUsernameId(ytID);
     if (channelId != undefined) {
         const result = setYTRSubscribeDB(data.guildId as string, options[0] as string, channelId, data.channelId);
         data.reply(result ? `訂閱 ${ytID} 成功 \n${options[0]}` : `已經訂閱過${ytID}了，是不是在搞??? \n${options[0]}`);
