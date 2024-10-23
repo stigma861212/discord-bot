@@ -1,7 +1,7 @@
 import { ChatInputCommandInteraction } from "discord.js";
 import { createSlashCommand } from "../../command";
 import { SlashCommand, CommandOption, CommandOptionType, OptionDataType } from "../../type";
-import { setYoutuberSubscribeDB as setYTRSubscribeDB } from "../../database";
+import { Database, GuildFields, YoutuberSubscribeFields } from "../../database";
 import { getUsernameId } from "../../youTubeDataAPIv3";
 
 /**Init Command info */
@@ -38,7 +38,18 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
     // TODO: 存至DB與監聽yt
     const channelId: string | undefined = await getUsernameId(ytID);
     if (channelId != undefined) {
-        const result = setYTRSubscribeDB(data.guildId as string, options[0] as string, channelId, data.channelId);
+        const noticeId: Array<{ textYTNotice_id: string }> = new Database().useGuildTable()
+            .select(GuildFields.TextYTNoticeId)
+            .where(GuildFields.ServerId, data.guildId)
+            .execute();
+
+        const result = new Database().useYoutuberSubscribeTable().insert({
+            [YoutuberSubscribeFields.ServerId]: data.guildId,
+            [YoutuberSubscribeFields.YoutuberUrl]: options[0],
+            [YoutuberSubscribeFields.YoutuberId]: channelId,
+            [YoutuberSubscribeFields.TextYTNoticeId]: noticeId[0].textYTNotice_id,
+        }, true) as boolean;
+
         data.reply(result ? `訂閱 ${ytID} 成功 \n${options[0]}` : `已經訂閱過${ytID}了，是不是在搞??? \n${options[0]}`);
     }
     else {

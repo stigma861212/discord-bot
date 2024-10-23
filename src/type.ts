@@ -1,21 +1,4 @@
-import { Channel, ChatInputCommandInteraction, ContextMenuCommandBuilder, Events, Role, SlashCommandBuilder, User } from "discord.js";
-
-/**Settings slash command name and effect */
-export type SlashCommandModule = {
-    /**command name */
-    command: SlashCommandBuilder;
-    /**command effect */
-    action: (data: ChatInputCommandInteraction) => Promise<void>;
-    /**command options*/
-    actionOption: Array<string>
-};
-
-export type ContextMenuCommandModule = {
-    /**command name */
-    command: ContextMenuCommandBuilder;
-    /**command effect */
-    action: (data: ChatInputCommandInteraction) => Promise<void>;
-};
+import { Channel, Events, Role, User } from "discord.js";
 
 export type EventMoudle = {
     /**event name */
@@ -70,18 +53,3 @@ export type OptionData = {
     type: number,
     value: string | number | boolean | undefined
 }
-
-export type ServerInfo = {
-    server_id: string;
-    channel_id: string;
-}
-
-export type DiscordData = ServerInfo & {
-    id: number;
-    server_name: string;
-};
-
-export type YoutuberSubscribeData = ServerInfo & {
-    youtuber_url: string;
-    youtuber_id: string;
-};

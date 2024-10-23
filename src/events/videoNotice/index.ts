@@ -1,6 +1,6 @@
 import { Client, Events, TextChannel } from "discord.js";
-import { EventMoudle, ServerInfo, YoutuberSubscribeData } from "../../type";
-import { getNowYoutuberSubscribeData } from "../../database";
+import { EventMoudle } from "../../type";
+import { Database, GuildFields, YoutuberSubscribeFields } from "../../database";
 import { getLatestNewVideo } from "../../youTubeDataAPIv3";
 
 /**Notice time */
@@ -29,27 +29,46 @@ export const action = async (client: Client<boolean>) => {
  * @param client server
  */
 const checkAndNotify = async (client: Client<boolean>) => {
-    if (isExactHour()) {
-        if (client.guilds.cache.size == 0) return;
+    if (!isExactHour()) return;
+    if (client.guilds.cache.size == 0) return;
 
-        const subscribelist: Array<YoutuberSubscribeData> = getNowYoutuberSubscribeData();
-        const youtuberServerCount: Record<string, Set<ServerInfo>> = {};
+    const subscribelist: Array<{ youtuber_id: string, server_id: string }> = new Database().useYoutuberSubscribeTable()
+        .select(YoutuberSubscribeFields.YoutuberId)
+        .select(YoutuberSubscribeFields.ServerId)
+        .execute();
+    // console.log("subscribelist:", subscribelist);
+    const youtuberServerCount: Record<string, Set<{
+        server_id: string;
+        textYTNotice_id: string;
+    }>> = {};
 
-        for (const subscribe of subscribelist) {
-            const { youtuber_id, server_id, channel_id } = subscribe;
-            youtuberServerCount[youtuber_id] ||= new Set<ServerInfo>();
-            youtuberServerCount[youtuber_id].add({ server_id: server_id, channel_id });
+    for (const subscribe of subscribelist) {
+        const { youtuber_id, server_id } = subscribe;
+        youtuberServerCount[youtuber_id] ||= new Set<{
+            server_id: string;
+            textYTNotice_id: string;
+        }>();
+
+        const textYTNotice_id: Array<{ textYTNotice_id: string }> = new Database().useGuildTable()
+            .select(GuildFields.TextYTNoticeId)
+            .where(GuildFields.ServerId, server_id)
+            .execute();
+
+        const obj = {
+            server_id: server_id,
+            textYTNotice_id: textYTNotice_id[0].textYTNotice_id
         }
-
-        for (const ytID in youtuberServerCount) {
-            const serverList = youtuberServerCount[ytID];
-            const videoList = await getLatestNewVideo(ytID);
-            if (videoList.length == 0) return;
-            for (const server of serverList) {
-                // send the url to each server connect channel
-                const channel = await client.channels.fetch(server.channel_id) as TextChannel;
-                channel.send(videoList.join("\n"));
-            }
+        youtuberServerCount[youtuber_id].add(obj);
+    }
+    // console.log("youtuberServerCount:", youtuberServerCount);
+    for (const ytID in youtuberServerCount) {
+        const serverList = youtuberServerCount[ytID];
+        const videoList = await getLatestNewVideo(ytID);
+        if (videoList.length == 0) continue;
+        for (const server of serverList) {
+            // send the url to each server connect channel
+            const channel = await client.channels.fetch(server.textYTNotice_id) as TextChannel;
+            channel.send(videoList.join("\n"));
         }
     }
 }

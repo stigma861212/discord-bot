@@ -1,5 +1,6 @@
-import { Client, Events, TextChannel } from "discord.js";
+import { ChannelType, Client, Events, TextChannel } from "discord.js";
 import { EventMoudle } from "../../type";
+import { Database, GuildFields } from "../../database";
 
 export const event: EventMoudle = {
     name: Events.ClientReady,
@@ -8,19 +9,52 @@ export const event: EventMoudle = {
 
 export const action = async (client: Client<boolean>) => {
     if (client.guilds.cache.size == 0) return;
+    // console.log("logged in", client.guilds.cache);
     console.log("logged in");
 
-    // client.guilds.cache.forEach(async (guild) => {
-    //     const channel = await client.channels.fetch(guild.systemChannelId as string) as TextChannel;
-    //     channel.send(`
-    //     **${client.user?.tag}** logged in!
-        
-    //     __本次重啟更新內容:__
-        
-    //     1. **新增小精靈 yt 退訂閱功能**  
-    //        對小精靈訂閱通知右鍵 > **應用程式** > **unsubscribe** 即可取消此頻道訂閱。
-    //     2. **斜線指令新增刪除當前頻道訊息功能**  
-    //        使用 **/purge** 指令，amount 選擇刪除行數，member（可選）選擇指定對象。
-    //     `);
-    // });
+    // TODO: 用db查詢伺服器的textNotice_id進行通知
+
+    const db = new Database();
+
+    const dbData: Array<{ server_id: string, textNotice_id: string, server_name: string }> = db.useGuildTable()
+        .select(GuildFields.ServerId)
+        .select(GuildFields.TextNoticeId)
+        .select(GuildFields.ServerName)
+        .execute();
+
+    // 將所有的 guilds id 轉換成一個 Set，提高查找效率
+    const guildIdsInCache = new Set(client.guilds.cache.map(guild => guild.id));
+
+    // 檢查哪些 dbData 中的 server_id 不在 client.guilds.cache 中
+    const missingGuilds = dbData.filter(data => !guildIdsInCache.has(data.server_id));
+
+    if (missingGuilds.length > 0) {
+        console.log("These server IDs are not in the bot's cache:", missingGuilds.map(data => [data.server_id, data.server_name]));
+        missingGuilds.map(data => db.useGuildTable().where(GuildFields.ServerId, data.server_id).delete(true));
+    }
+
+    // for (const guildData of client.guilds.cache) {
+    //     const guild = guildData[1];
+    //     const guildId = guildData[1].id
+
+    //     for (const data of dbData) {
+    //         if (data.server_id == guildId) {
+    //             const channel = guild.channels.cache.get(data.textNotice_id);
+    //             if (channel && channel.type === ChannelType.GuildText) {
+    //                 channel.send(`
+    //             **${client.user?.tag}** logged in!
+
+    //             __本次重啟更新內容:__
+
+    //             1. **新增小精靈 yt 退訂閱功能**  
+    //                對小精靈訂閱通知右鍵 > **應用程式** > **unsubscribe** 即可取消此頻道訂閱。
+    //             2. **斜線指令新增刪除當前頻道訊息功能**  
+    //                使用 **/purge** 指令，amount 選擇刪除行數，member（可選）選擇指定對象。
+    //             `);
+    //             } else {
+    //                 console.log('Channel not found or not a text channel.');
+    //             }
+    //         }
+    //     }
+    // }
 }

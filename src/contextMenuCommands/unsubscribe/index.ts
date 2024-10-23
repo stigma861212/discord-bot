@@ -1,8 +1,8 @@
 import { ChatInputCommandInteraction, MessageContextMenuCommandInteraction } from "discord.js";
 import { createContextMenuCommand } from "../../command";
-import { CommandOption, OptionDataType, ContextMenuCommand } from "../../type";
+import { CommandOption, ContextMenuCommand } from "../../type";
 import { getUploaderId } from "../../youTubeDataAPIv3";
-import { deleteYoutuberSubscribe } from "../../database";
+import { Database, YoutuberSubscribeFields } from "../../database";
 
 /**Init Command info */
 const initCommandInfo: Readonly<ContextMenuCommand> = {
@@ -33,14 +33,21 @@ export const action = async (data: MessageContextMenuCommandInteraction) => {
     }
     else if (message.content.includes("https://www.youtube.com")) {
         const videoId = message.content.split("=")[1];
-        const channelId = await getUploaderId(videoId);
-        if (channelId == undefined) {
+        const ytId = await getUploaderId(videoId);
+        if (ytId == undefined) {
             data.reply(`小精靈查詢不到此youtube影片資料，請確認影片格式是否正確`);
         }
         else {
-            // TODO:傳送sever id 與 yt id 去刪除 db資料
-            const result = deleteYoutuberSubscribe(data.guildId as string, channelId);
-            data.reply("小精靈" + result);
+            const result = new Database().useYoutuberSubscribeTable()
+                .where(YoutuberSubscribeFields.ServerId, data.guildId as string)
+                .where(YoutuberSubscribeFields.YoutuberId, ytId)
+                .delete(true);
+
+            if (result) {
+                data.reply("小精靈成功刪除訂閱資料");
+            } else {
+                data.reply("小精靈找不到伺服器有訂閱此頻道資料或訂閱資料格式有誤");
+            }
         }
     }
     else {
