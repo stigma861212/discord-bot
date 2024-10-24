@@ -1,6 +1,7 @@
-import { ChannelType, Client, Events, TextChannel } from "discord.js";
+import { ChannelType, Client, Events } from "discord.js";
 import { EventMoudle } from "../../type";
 import { Database, GuildFields } from "../../database";
+import { announcementInfo } from "../../announcement";
 
 export const event: EventMoudle = {
     name: Events.ClientReady,
@@ -33,28 +34,19 @@ export const action = async (client: Client<boolean>) => {
         missingGuilds.map(data => db.useGuildTable().where(GuildFields.ServerId, data.server_id).delete(true));
     }
 
-    // for (const guildData of client.guilds.cache) {
-    //     const guild = guildData[1];
-    //     const guildId = guildData[1].id
+    for (const guildData of client.guilds.cache) {
+        const guild = guildData[1];
+        const guildId = guildData[1].id
 
-    //     for (const data of dbData) {
-    //         if (data.server_id == guildId) {
-    //             const channel = guild.channels.cache.get(data.textNotice_id);
-    //             if (channel && channel.type === ChannelType.GuildText) {
-    //                 channel.send(`
-    //             **${client.user?.tag}** logged in!
-
-    //             __本次重啟更新內容:__
-
-    //             1. **新增小精靈 yt 退訂閱功能**  
-    //                對小精靈訂閱通知右鍵 > **應用程式** > **unsubscribe** 即可取消此頻道訂閱。
-    //             2. **斜線指令新增刪除當前頻道訊息功能**  
-    //                使用 **/purge** 指令，amount 選擇刪除行數，member（可選）選擇指定對象。
-    //             `);
-    //             } else {
-    //                 console.log('Channel not found or not a text channel.');
-    //             }
-    //         }
-    //     }
-    // }
+        for (const data of dbData) {
+            if (data.server_id == guildId) {
+                const channel = guild.channels.cache.get(data.textNotice_id);
+                if (channel && channel.type === ChannelType.GuildText) {
+                    await channel.send({ embeds: [announcementInfo], allowedMentions: { parse: [] } });
+                } else {
+                    console.log('Channel not found or not a text channel.');
+                }
+            }
+        }
+    }
 }

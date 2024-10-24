@@ -2,7 +2,6 @@ import { ChatInputCommandInteraction, Client, Collection, ContextMenuCommandBuil
 import path from "path";
 import { promises as fs } from 'fs';
 import ClientDataManager from "./clientDataManager";
-import { ContextMenuCommandModule, SlashCommandModule } from "./type";
 
 /**Register slash commands */
 const registerCommands = async (commands: Array<SlashCommandBuilder | ContextMenuCommandBuilder>) => {

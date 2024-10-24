@@ -1,6 +1,7 @@
 import { ChannelType, Events, Guild, GuildChannelCreateOptions } from "discord.js";
 import { EventMoudle } from "../../type";
 import { Database, GuildFields } from "../../database";
+import { announcementInfo } from "../../announcement";
 
 export const event: EventMoudle = {
     name: Events.GuildCreate,
@@ -45,18 +46,25 @@ export const action = async (guild: Guild) => {
             }, true);
 
         for (const [, channel] of guild.channels.cache) {
-            if (channel.type != ChannelType.GuildText) return;
+            if (channel.type != ChannelType.GuildText) continue;
             if (channel.id === textHomeChannel.id) {
-                // TODO: 待新增內容
-                channel.send(`這是我家，目前沒有功能，後續規劃為管理員權限指令的互動頻道`);
+                channel.send({
+                    content: `這是我家，目前沒有功能，後續規劃為管理員權限指令的互動頻道`,
+                    allowedMentions: { parse: [] }
+                });
             }
             else if (channel.id == textNoticeChannel.id) {
-                // TODO: 待新增內容
-                channel.send(`這是我家公告欄，小精靈會在這通知版本新功能`);
+                await channel.send({
+                    content: `這是我家的公告欄，小精靈會在這通知版本新功能`,
+                    allowedMentions: { parse: [] }
+                });
+                await channel.send({ embeds: [announcementInfo], allowedMentions: { parse: [] } });
             }
             else if (channel.id == textYTNoticeChannel.id) {
-                // TODO: 待新增內容
-                channel.send(`這是我影片通知欄，小精靈會在這通知伺服器訂閱的YT影片`);
+                channel.send({
+                    content: `這是我家的影片通知欄，小精靈會在這通知伺服器訂閱的YT影片`,
+                    allowedMentions: { parse: [] }
+                });
             }
         }
     } catch (error) {
