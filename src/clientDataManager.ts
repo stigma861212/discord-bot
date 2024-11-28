@@ -1,4 +1,4 @@
-import { ChatInputCommandInteraction, Client, Collection, GatewayIntentBits, MessageContextMenuCommandInteraction } from "discord.js";
+import { ChatInputCommandInteraction, Client, Collection, GatewayIntentBits, MessageContextMenuCommandInteraction, Partials } from "discord.js";
 import { OptionDataType } from "./type";
 
 /**Store client and actions data */
@@ -18,7 +18,9 @@ export default class ClientDataManager {
                 GatewayIntentBits.GuildMessages,
                 GatewayIntentBits.MessageContent,
                 GatewayIntentBits.GuildMembers,
+                GatewayIntentBits.GuildMessageReactions
             ],
+            partials: [Partials.Message, Partials.Reaction, Partials.User]
         });
         this.client.login(process.env.DISCORD_TOKEN);
     }

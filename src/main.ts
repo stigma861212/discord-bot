@@ -9,7 +9,8 @@ const mainStart = async () => {
     /**discord client */
     const client = ClientDataManager.getInstance().getClient();
     await loadAllCommands();
-    loadEvents(client);
+    await loadEvents(client);
+    console.log("mainStart complete");
 };
 
 mainStart();

@@ -11,7 +11,15 @@ export const announcementInfo: EmbedBuilder = new EmbedBuilder()
     .setTitle("小精靈更新資訊")
     .addFields(
         { name: `當前版本`, value: `${announcementVersion} 版` },
-        { name: `1. **新增小精靈領土功能**`, value: `小精靈進到伺服器後會自動霸佔部分空間，創建頻道、分類來處理通知。這些頻道與分類可以更改位置與更換名稱，但更換名稱並不會改變頻道作用，刪除將會無法接收頻道對應消息` },
-        { name: `2. **內部優化**`, value: `捕捉更多小精靈` }
+        { name: `1. **新增身分組領取功能**`, value: `新增小精靈觀察員身分組，避免不需要訊息的成員被通知轟炸` },
+        { name: `2. **內部優化**`, value: `調整小精靈996工時` }
     )
     .setTimestamp(Date.now())
+
+/**
+ * Explain how to get roles
+ */
+export const getRolesInfo: EmbedBuilder = new EmbedBuilder()
+    .setColor([255, 51, 51])
+    .setTitle("領取身分組")
+    .setDescription(`如需要訂閱影片通知請點擊下方🎟️來領取身分組`)

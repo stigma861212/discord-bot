@@ -51,6 +51,7 @@ export const loadEvents = async (client: Client) => {
             else {
                 client.on(eventFile.event.name, eventFile.action);
             }
+            // console.log("Event loading complete:", eventFile.event.name);
         }
     } catch (error) {
         console.error('Error reading commands directory:', error);
