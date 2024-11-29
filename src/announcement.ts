@@ -12,7 +12,8 @@ export const announcementInfo: EmbedBuilder = new EmbedBuilder()
     .addFields(
         { name: `當前版本`, value: `${announcementVersion} 版` },
         { name: `1. **新增身分組領取功能**`, value: `新增小精靈觀察員身分組，避免不需要訊息的成員被通知轟炸` },
-        { name: `2. **內部優化**`, value: `調整小精靈996工時` }
+        { name: `2. **新增小精靈頻道刪除指令**`, value: `立刻讓小精靈失業` },
+        { name: `3. **內部優化**`, value: `調整小精靈996工時` }
     )
     .setTimestamp(Date.now())
 
