@@ -1,6 +1,7 @@
 import { BaseInteraction, Events, InteractionType, User } from "discord.js";
 import ClientDataManager from "../../clientDataManager";
 import { OptionData, OptionDataType as OptionDataCollectType, OptionType } from "../../type";
+import { musicButtonInteractionHandler } from "../../button";
 
 export const event = {
     name: Events.InteractionCreate,
@@ -48,6 +49,7 @@ export const action = async (interaction: BaseInteraction) => {
         const action = ClientDataManager.getInstance().getActions().get(interaction.commandName);
         if (action != undefined) await action(interaction, []);
     }
-    else if (interaction.isUserContextMenuCommand()) {
+    else if (interaction.isButton()) {
+        await musicButtonInteractionHandler(interaction);
     }
 }

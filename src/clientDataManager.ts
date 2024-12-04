@@ -18,7 +18,8 @@ export default class ClientDataManager {
                 GatewayIntentBits.GuildMessages,
                 GatewayIntentBits.MessageContent,
                 GatewayIntentBits.GuildMembers,
-                GatewayIntentBits.GuildMessageReactions
+                GatewayIntentBits.GuildMessageReactions,
+                GatewayIntentBits.GuildVoiceStates,
             ],
             partials: [Partials.Message, Partials.Reaction, Partials.User]
         });
