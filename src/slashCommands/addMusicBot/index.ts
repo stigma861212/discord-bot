@@ -1,4 +1,4 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonInteraction, CacheType, ChatInputCommandInteraction, GuildMember } from "discord.js";
+import { ActionRowBuilder, ButtonBuilder, ButtonInteraction, CacheType, ChatInputCommandInteraction, EmbedBuilder, EmbedFooterOptions, GuildMember, TextChannel } from "discord.js";
 import { AudioPlayerStatus, createAudioPlayer, createAudioResource, joinVoiceChannel } from "@discordjs/voice";
 import { createSlashCommand } from "../../command";
 import { SlashCommand, CommandOption, OptionDataType, CommandOptionType } from "../../type";
@@ -39,8 +39,17 @@ export const command = createSlashCommand(initCommandInfo.name, initCommandInfo.
 /**Command action */
 export const action = async (data: ChatInputCommandInteraction, options: Array<OptionDataType>) => {
     // const url = options[0] as string;
-    // console.log("https://music.youtube.com/playlist?list=LRSRV6WluDfrdlhe-HL2Xk4TU49ta9TRlUT_A&si=SGZsUVCktX5xhpeL");
-    const playlist = await ytpl(options[0] as string);
+
+    // const playlist = await ytpl(options[0] as string);
+    let playlist: ytpl.Result;
+    try {
+        playlist = await ytpl(options[0] as string);
+        console.log('Playlist fetched successfully');
+    } catch (error) {
+        console.error('Failed to fetch playlist');
+        return;
+    }
+
     const voiceChannel = (data.member as GuildMember).voice?.channel;
     if (!voiceChannel) {
         await data.reply({
@@ -85,9 +94,42 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
     let currentTrackIndex: number = 0;
     playNext(currentTrackIndex);
 
-    function playNext(index: number) {
+    /**
+     * To play next track with index number
+     * @param index order number of the current track
+     */
+    async function playNext(index: number) {
         if (index < playlist.items.length) {
             const url = playlist.items[index].url;
+            const trackName = playlist.items[index].title;
+            const authorName = playlist.items[index].author.name;
+            const authorUrl = playlist.items[index].author.url;
+            const trackDuration = playlist.items[index].duration as string;
+            const bestThumbnail = playlist.items[index].bestThumbnail.url as string;
+
+            // const colorApi = `https://www.thecolorapi.com/id?image=${encodeURIComponent(bestThumbnail)}`;
+            // const response = await fetch(colorApi);
+            // if (!response.ok) throw new Error('無法取得色彩分析結果，改用預設色');
+            // const colorData = await response.json();
+            // const rgb = colorData.rgb;
+            // console.log("rgb:", rgb);
+
+            /**新音樂資料 */
+            const newPanelEmbeds = new EmbedBuilder()
+                .setTitle(trackName)
+                .setThumbnail(bestThumbnail)
+                .addFields(
+                    { name: "Duration", value: trackDuration, inline: true },
+                )
+                .setFooter({ text: authorName, iconURL: authorUrl })
+            // .setColor([rgb.r, rgb.g, rgb.b])
+
+            // 修改當前的音樂面板
+            await panel.edit({
+                embeds: [newPanelEmbeds],
+                components: [buttonRow]
+            })
+
             const stream = ytdl(url, {
                 filter: 'audioonly' as const,
                 quality: 'highestaudio',
@@ -107,11 +149,18 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
 
             const resource = createAudioResource(stream);
             player.play(resource);
-            // https://music.youtube.com/playlist?list=PLNII0FFNVK7GFub48zc6fFqVcc8VdhIJ6&si=wq2b--NQFEWXVzyW
-            // https://www.youtube.com/watch?v=CjaM8qWzssk&list=PLNII0FFNVK7GFub48zc6fFqVcc8VdhIJ6
         }
         else {
             connection.destroy();
+            await data.deleteReply();
+            await panel.delete();
+            const endMessage = await (data.channel as TextChannel).send({
+                content: '歌單已經結束，是時候讓小精靈回到後台繼續原本該做的工作了',
+            })
+            setTimeout(async () => {
+                endMessage.delete();
+                playerEventEmitter.removeAllListeners();
+            }, 5000);
         }
     }
 
