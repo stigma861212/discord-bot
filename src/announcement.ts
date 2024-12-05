@@ -11,9 +11,9 @@ export const announcementInfo: EmbedBuilder = new EmbedBuilder()
     .setTitle("小精靈更新資訊")
     .addFields(
         { name: `當前版本`, value: `${announcementVersion} 版` },
-        { name: `1. **新增小精靈唱歌斜線指令**`, value: `從後台挑出會唱歌的小精靈，輸入歌單範例 https://www.youtube.com/watch?v=影片編號&list=影片清單編號` },
-        { name: `2. **新增小精靈唱歌控制台**`, value: `控制小精靈唱歌` },
-        { name: `3. **內部優化**`, value: `小精靈學唱歌，購買喉糖` }
+        { name: `1. **優化唱歌斜線指令**`, value: `使用者輸入錯誤url不會讓小精靈休克` },
+        { name: `2. **小精靈唱歌控制台簡易畫面**`, value: `控制台會顯示歌曲資訊了` },
+        { name: `3. **內部優化**`, value: `小精靈合唱團報名中` }
     )
     .setTimestamp(Date.now())
 
