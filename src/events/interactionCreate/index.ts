@@ -1,4 +1,4 @@
-import { BaseInteraction, Events, InteractionType, User } from "discord.js";
+import { BaseInteraction, Events, User } from "discord.js";
 import ClientDataManager from "../../clientDataManager";
 import { OptionData, OptionDataType as OptionDataCollectType, OptionType } from "../../type";
 import { musicButtonInteractionHandler } from "../../button";
