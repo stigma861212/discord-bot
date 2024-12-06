@@ -1,4 +1,4 @@
-import { ButtonBuilder, ButtonStyle, ComponentEmojiResolvable, EmbedBuilder } from "discord.js";
+import { EmbedBuilder } from "discord.js";
 
 /**Current version */
 const announcementVersion: string = "測試";
@@ -11,9 +11,7 @@ export const announcementInfo: EmbedBuilder = new EmbedBuilder()
     .setTitle("小精靈更新資訊")
     .addFields(
         { name: `當前版本`, value: `${announcementVersion} 版` },
-        { name: `1. **優化唱歌斜線指令**`, value: `使用者輸入錯誤url不會讓小精靈休克` },
-        { name: `2. **小精靈唱歌控制台簡易畫面**`, value: `控制台會顯示歌曲資訊了` },
-        { name: `3. **內部優化**`, value: `小精靈合唱團報名中` }
+        { name: `1. **更新第一版唱歌控制台畫面**`, value: `控制台會跟著圖片變色了!` },
     )
     .setTimestamp(Date.now())
 
