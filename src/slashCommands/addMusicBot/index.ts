@@ -43,7 +43,6 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
     let playlist: ytpl.Result;
     try {
         playlist = await ytpl(options[0] as string);
-        console.log('Playlist fetched successfully');
     } catch (error) {
         console.error('Failed to fetch playlist');
         return;
@@ -58,12 +57,6 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
         return;
     }
 
-    await data.reply({
-        content: '已送單，稍等後台會抓一隻會唱不會跳的小精靈進來語音唱歌',
-    });
-
-    await new Promise(resolve => setTimeout(resolve, 3000));
-
     const buttonRow = new ActionRowBuilder<ButtonBuilder>();
 
     buttonRow.addComponents(
@@ -74,7 +67,7 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
         music_exitButton
     );
 
-    const panel = await data.followUp({
+    const panel = await data.reply({
         embeds: [musicPanel],
         components: [buttonRow]
     })
@@ -91,6 +84,7 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
     connection.subscribe(player);
 
     let currentTrackIndex: number = 0;
+
     playNext(currentTrackIndex);
 
     /**
@@ -102,8 +96,6 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
             const url = playlist.items[index].url;
             const trackName = playlist.items[index].title;
             const authorName = playlist.items[index].author.name;
-            const authorUrl = playlist.items[index].author.url;
-            const trackDuration = playlist.items[index].duration as string;
             const bestThumbnail = playlist.items[index].bestThumbnail.url as string;
 
             const color = await getDominantColorFromUrl(bestThumbnail);
@@ -199,6 +191,7 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
                 console.error('Error downloading the stream:', err);
             });
 
+            stream.on('end', () => console.log('Stream ended'));
             stream.on('error', (err) => {
                 console.error('Stream error:', err);
             });
@@ -211,21 +204,13 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
         }
         else {
             connection.destroy();
-            await data.deleteReply();
             await panel.delete();
-            const endMessage = await (data.channel as TextChannel).send({
-                content: '歌單已經結束，是時候讓小精靈回到後台繼續原本該做的工作了',
-            })
-            setTimeout(async () => {
-                endMessage.delete();
-                playerEventEmitter.removeAllListeners();
-            }, 5000);
+            playerEventEmitter.removeAllListeners();
         }
     }
 
     // 設置當前音樂播放結束後的回調
     player.on('stateChange', (oldState, newState) => {
-        console.log("stateChange");
         if (newState.status === AudioPlayerStatus.Idle) {
             currentTrackIndex++;
             playNext(currentTrackIndex);
@@ -233,167 +218,45 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
     });
 
     playerEventEmitter.on("music_play", async (interaction: ButtonInteraction<CacheType>) => {
-        console.log("music_play");
+        const mes = await interaction.deferReply({ ephemeral: true });
         if (player.state.status === AudioPlayerStatus.Paused) {
             player.unpause();
-            await interaction.reply({
-                content: 'play 操作成功，接著唱！',
-                ephemeral: true,
-            });
         }
-        else if (player.state.status === AudioPlayerStatus.Playing) {
-            await interaction.reply({
-                content: '就已經在唱歌了，專心聽！',
-                ephemeral: true,
-            });
-        }
-        setTimeout(async () => {
-            await interaction.deleteReply();
-        }, 5000);
     })
 
     playerEventEmitter.on('music_pause', async (interaction: ButtonInteraction<CacheType>) => {
-        console.log("music_pause");
+        const mes = await interaction.deferReply({ ephemeral: true });
         if (player.state.status === AudioPlayerStatus.Playing) {
             player.pause();
-            await interaction.reply({
-                content: 'pause 操作成功，靜悄悄！',
-                ephemeral: true,
-            });
         }
-        else if (player.state.status === AudioPlayerStatus.Paused) {
-            await interaction.reply({
-                content: '已經沒在唱歌了，是要小精靈滾蛋嗎?',
-                ephemeral: true,
-            });
-        }
-        setTimeout(async () => {
-            await interaction.deleteReply();
-        }, 5000);
+        setTimeout(() => { mes.delete() }, 500);
     });
 
     playerEventEmitter.on('music_next', async (interaction: ButtonInteraction<CacheType>) => {
-        console.log("music_next");
+        const mes = await interaction.deferReply({ ephemeral: true });
         if (currentTrackIndex + 1 < playlist.items.length) {
             currentTrackIndex++;
             playNext(currentTrackIndex);
-            await interaction.reply({
-                content: 'next 操作成功，小精靈不會再唱這首破歌了...',
-                ephemeral: true,
-            });
         }
-        else {
-            await interaction.reply({
-                content: '這是最後的一曲了...',
-                ephemeral: true,
-            });
-        }
-        setTimeout(async () => {
-            await interaction.deleteReply();
-        }, 5000);
+        setTimeout(() => { mes.delete() }, 500);
     });
 
     playerEventEmitter.on('music_previous', async (interaction: ButtonInteraction<CacheType>) => {
-        console.log("music_previous");
+        const mes = await interaction.deferReply({ ephemeral: true });
         if (currentTrackIndex > 0) {
             currentTrackIndex--;
             playNext(currentTrackIndex);
-            await interaction.reply({
-                content: 'previous 操作成功，小精靈準備重唱',
-                ephemeral: true,
-            });
         }
-        else {
-            await interaction.reply({
-                content: '沒有前一首歌耶',
-                ephemeral: true,
-            });
-        }
-        setTimeout(async () => {
-            await interaction.deleteReply();
-        }, 5000);
+        setTimeout(() => { mes.delete() }, 500);
     });
 
     playerEventEmitter.once('music_exit', async (interaction: ButtonInteraction<CacheType>) => {
-        console.log("music_exit");
+        const mes = await interaction.deferReply({ ephemeral: true });
         playerEventEmitter.removeAllListeners();
         connection.destroy();
-        await data.deleteReply();
         await panel.delete();
-        await interaction.reply({
-            content: 'exit 操作成功，小精靈連一刻都沒有為結束的歌單哀悼，立刻趕到後台繼續原本該做的工作',
-        });
-        setTimeout(async () => {
-            await interaction.deleteReply();
-            console.log("now removeAll");
-        }, 5000);
+        setTimeout(() => { mes.delete() }, 500);
     });
-
-    async function getDominantColor(url: string) {
-        return new Promise((resolve, reject) => {
-            // 創建 Image 元素
-            const img = new Image();
-            img.crossOrigin = 'Anonymous'; // 允許跨域圖像加載
-            img.src = url;
-
-            img.onload = () => {
-                // 創建 canvas 元素
-                const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
-
-                if (!ctx) {
-                    reject('Failed to get canvas context');
-                    return;
-                }
-
-                // 設定 canvas 尺寸為圖片尺寸
-                canvas.width = img.width;
-                canvas.height = img.height;
-
-                // 將圖片繪製到 canvas 上
-                ctx.drawImage(img, 0, 0, img.width, img.height);
-
-                // 獲取圖片的像素數據
-                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                const pixels = imageData.data;
-
-                // 計算顏色的頻率
-                const colorMap: { [key: string]: number } = {};
-                for (let i = 0; i < pixels.length; i += 4) {
-                    const r = pixels[i];
-                    const g = pixels[i + 1];
-                    const b = pixels[i + 2];
-
-                    // 我們將顏色組合成字符串進行統計
-                    const colorKey = `${r},${g},${b}`;
-
-                    if (colorMap[colorKey]) {
-                        colorMap[colorKey]++;
-                    } else {
-                        colorMap[colorKey] = 1;
-                    }
-                }
-
-                // 找出出現最多的顏色
-                let dominantColor = '';
-                let maxCount = 0;
-
-                for (const colorKey in colorMap) {
-                    if (colorMap[colorKey] > maxCount) {
-                        maxCount = colorMap[colorKey];
-                        dominantColor = colorKey;
-                    }
-                }
-
-                // 返回主要顏色
-                resolve(`rgb(${dominantColor})`);
-            };
-
-            img.onerror = (error) => {
-                reject(error);
-            };
-        });
-    }
 };
 
 /**Get all `setName` string in the command in order  */

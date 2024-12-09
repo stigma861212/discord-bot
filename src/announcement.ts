@@ -11,7 +11,9 @@ export const announcementInfo: EmbedBuilder = new EmbedBuilder()
     .setTitle("小精靈更新資訊")
     .addFields(
         { name: `當前版本`, value: `${announcementVersion} 版` },
-        { name: `1. **更新第一版唱歌控制台畫面**`, value: `控制台會跟著圖片變色了!` },
+        { name: `1. **音樂功能修正超時訊息時無法刪除錯誤問題**`, value: `音樂面板超過15分鐘刪除互動已正常運作` },
+        { name: `2. **音樂監聽**`, value: `開啟對Stream監測，規劃AudioResource預加載方式` },
+        { name: `3. **音樂面板功能簡化**`, value: `刪除互動訊息以簡化流程` },
     )
     .setTimestamp(Date.now())
 
