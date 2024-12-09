@@ -5,7 +5,7 @@ import { SlashCommand, CommandOption, OptionDataType, CommandOptionType } from "
 import ytpl from "ytpl";
 import ytdl from "@distube/ytdl-core";
 import { musicPanel } from "../../announcement";
-import { music_previousButton, music_playButton, music_pauseButton, music_nextButton, music_exitButton } from "../../button";
+import { music_previousButton, music_playButton, music_pauseButton, music_nextButton, music_exitButton, music_randomButton, music_urlButton } from "../../button";
 import { EventEmitter } from 'events';
 import sharp from "sharp";
 import axios from "axios";
@@ -41,12 +41,15 @@ export const command = createSlashCommand(initCommandInfo.name, initCommandInfo.
 /**Command action */
 export const action = async (data: ChatInputCommandInteraction, options: Array<OptionDataType>) => {
     let playlist: ytpl.Result;
+    let playlistURL: string = options[0] as string;
     try {
-        playlist = await ytpl(options[0] as string);
+        playlist = await ytpl(playlistURL);
     } catch (error) {
         console.error('Failed to fetch playlist');
         return;
     }
+
+    music_urlButton.setURL(playlistURL);
 
     const voiceChannel = (data.member as GuildMember).voice?.channel;
     if (!voiceChannel) {
@@ -57,20 +60,36 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
         return;
     }
 
-    const buttonRow = new ActionRowBuilder<ButtonBuilder>();
+    const buttonRowPlayState = new ActionRowBuilder<ButtonBuilder>()
+        .addComponents(
+            music_previousButton,
+            music_pauseButton,
+            music_nextButton,
+            music_exitButton,
+            music_randomButton
+        );
 
-    buttonRow.addComponents(
-        music_previousButton,
-        music_playButton,
-        music_pauseButton,
-        music_nextButton,
-        music_exitButton
-    );
+    const buttonRowStopState = new ActionRowBuilder<ButtonBuilder>()
+        .addComponents(
+            music_previousButton,
+            music_playButton,
+            music_nextButton,
+            music_exitButton,
+            music_randomButton
+        );
 
+    const buttonRowLink = new ActionRowBuilder<ButtonBuilder>()
+        .addComponents(
+            music_urlButton
+        );
+
+    // 然後將這兩行放在 components 陣列中
     const panel = await data.reply({
         embeds: [musicPanel],
-        components: [buttonRow]
-    })
+        components: [buttonRowPlayState, buttonRowLink]
+    });
+
+    let embeds: EmbedBuilder;
 
     /**
      * Add bot to user voice channel
@@ -85,6 +104,7 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
 
     let currentTrackIndex: number = 0;
 
+    updatePanel(currentTrackIndex);
     playNext(currentTrackIndex);
 
     /**
@@ -94,11 +114,45 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
     async function playNext(index: number) {
         if (index < playlist.items.length) {
             const url = playlist.items[index].url;
+            const stream = ytdl(url, {
+                filter: 'audioonly' as const,
+                quality: 'lowestaudio',
+                highWaterMark: 1 << 25,
+                requestOptions: {
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3',
+                    },
+                },
+            }).on('error', (err) => {
+                console.error('Error downloading the stream:', err);
+            });
+
+            stream.on('end', () => console.log('Stream ended'));
+            stream.on('error', (err) => {
+                console.error('Stream error:', err);
+            });
+
+            const resource = createAudioResource(stream, {
+                inlineVolume: true,
+            });
+            resource.volume?.setVolume(0.1);
+            player.play(resource);
+        }
+        else {
+            connection.destroy();
+            await panel.delete();
+            playerEventEmitter.removeAllListeners();
+        }
+    }
+
+    async function updatePanel(index: number) {
+        if (index < playlist.items.length) {
+            const url = playlist.items[index].url;
             const trackName = playlist.items[index].title;
             const authorName = playlist.items[index].author.name;
             const bestThumbnail = playlist.items[index].bestThumbnail.url as string;
-
             const color = await getDominantColorFromUrl(bestThumbnail);
+
             /**
              * Get DominantColor frome URL
              * @param imageUrl url
@@ -160,7 +214,7 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
             }
 
             /**新音樂資料 */
-            const newPanelEmbeds = new EmbedBuilder()
+            embeds = new EmbedBuilder()
                 .setTitle(trackName)
                 // .setThumbnail(bestThumbnail)
                 .addFields(
@@ -174,38 +228,9 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
 
             // 修改當前的音樂面板
             await panel.edit({
-                embeds: [newPanelEmbeds],
-                components: [buttonRow]
+                embeds: [embeds],
+                components: [buttonRowPlayState, buttonRowLink]
             })
-
-            const stream = ytdl(url, {
-                filter: 'audioonly' as const,
-                quality: 'highestaudio',
-                highWaterMark: 1 << 25,
-                requestOptions: {
-                    headers: {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3',
-                    },
-                },
-            }).on('error', (err) => {
-                console.error('Error downloading the stream:', err);
-            });
-
-            stream.on('end', () => console.log('Stream ended'));
-            stream.on('error', (err) => {
-                console.error('Stream error:', err);
-            });
-
-            const resource = createAudioResource(stream, {
-                inlineVolume: true,
-            });
-            resource.volume?.setVolume(0.1);
-            player.play(resource);
-        }
-        else {
-            connection.destroy();
-            await panel.delete();
-            playerEventEmitter.removeAllListeners();
         }
     }
 
@@ -214,6 +239,7 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
         if (newState.status === AudioPlayerStatus.Idle) {
             currentTrackIndex++;
             playNext(currentTrackIndex);
+            updatePanel(currentTrackIndex);
         }
     });
 
@@ -222,6 +248,11 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
         if (player.state.status === AudioPlayerStatus.Paused) {
             player.unpause();
         }
+        await panel.edit({
+            embeds: [embeds],
+            components: [buttonRowPlayState, buttonRowLink]
+        })
+        setTimeout(() => { mes.delete() }, 500);
     })
 
     playerEventEmitter.on('music_pause', async (interaction: ButtonInteraction<CacheType>) => {
@@ -229,6 +260,10 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
         if (player.state.status === AudioPlayerStatus.Playing) {
             player.pause();
         }
+        await panel.edit({
+            embeds: [embeds],
+            components: [buttonRowStopState, buttonRowLink]
+        })
         setTimeout(() => { mes.delete() }, 500);
     });
 
@@ -237,6 +272,7 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
         if (currentTrackIndex + 1 < playlist.items.length) {
             currentTrackIndex++;
             playNext(currentTrackIndex);
+            updatePanel(currentTrackIndex);
         }
         setTimeout(() => { mes.delete() }, 500);
     });
@@ -246,7 +282,17 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
         if (currentTrackIndex > 0) {
             currentTrackIndex--;
             playNext(currentTrackIndex);
+            updatePanel(currentTrackIndex);
         }
+        setTimeout(() => { mes.delete() }, 500);
+    });
+
+    playerEventEmitter.on('music_random', async (interaction: ButtonInteraction<CacheType>) => {
+        const mes = await interaction.deferReply({ ephemeral: true });
+        currentTrackIndex = 0;
+        playlist.items.sort(() => Math.random() - 0.5);
+        playNext(currentTrackIndex);
+        updatePanel(currentTrackIndex);
         setTimeout(() => { mes.delete() }, 500);
     });
 
