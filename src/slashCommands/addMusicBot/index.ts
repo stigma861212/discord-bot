@@ -86,7 +86,8 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
     // 然後將這兩行放在 components 陣列中
     const panel = await data.reply({
         embeds: [musicPanel],
-        components: [buttonRowPlayState, buttonRowLink]
+        components: [buttonRowPlayState, buttonRowLink],
+        fetchReply: true, // 確保獲取可編輯的訊息
     });
 
     let embeds: EmbedBuilder;
@@ -127,7 +128,6 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
                 console.error('Error downloading the stream:', err);
             });
 
-            stream.on('end', () => console.log('Stream ended'));
             stream.on('error', (err) => {
                 console.error('Stream error:', err);
             });
@@ -136,6 +136,13 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
                 inlineVolume: true,
             });
             resource.volume?.setVolume(0.1);
+
+            // Wait for the stream to preload some sec(2500)
+            await new Promise(async resolve => {
+                setTimeout(resolve, 2500);
+            });
+
+            player.unpause();
             player.play(resource);
         }
         else {
@@ -269,6 +276,7 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
 
     playerEventEmitter.on('music_next', async (interaction: ButtonInteraction<CacheType>) => {
         const mes = await interaction.deferReply({ ephemeral: true });
+        player.pause();
         if (currentTrackIndex + 1 < playlist.items.length) {
             currentTrackIndex++;
             playNext(currentTrackIndex);
@@ -279,6 +287,7 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
 
     playerEventEmitter.on('music_previous', async (interaction: ButtonInteraction<CacheType>) => {
         const mes = await interaction.deferReply({ ephemeral: true });
+        player.pause();
         if (currentTrackIndex > 0) {
             currentTrackIndex--;
             playNext(currentTrackIndex);
@@ -289,6 +298,7 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
 
     playerEventEmitter.on('music_random', async (interaction: ButtonInteraction<CacheType>) => {
         const mes = await interaction.deferReply({ ephemeral: true });
+        player.pause();
         currentTrackIndex = 0;
         playlist.items.sort(() => Math.random() - 0.5);
         playNext(currentTrackIndex);
@@ -298,6 +308,7 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
 
     playerEventEmitter.once('music_exit', async (interaction: ButtonInteraction<CacheType>) => {
         const mes = await interaction.deferReply({ ephemeral: true });
+        player.pause();
         playerEventEmitter.removeAllListeners();
         connection.destroy();
         await panel.delete();
