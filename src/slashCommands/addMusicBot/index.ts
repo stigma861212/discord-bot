@@ -119,31 +119,26 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
                 filter: 'audioonly' as const,
                 quality: 'lowestaudio',
                 highWaterMark: 1 << 25,
-                requestOptions: {
-                    headers: {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3',
-                    },
-                },
-            }).on('error', (err) => {
-                console.error('Error downloading the stream:', err);
-            });
+            })
 
-            stream.on('error', (err) => {
-                console.error('Stream error:', err);
-            });
+            try {
+                const resource = createAudioResource(stream, {
+                    inlineVolume: true,
+                });
+                resource.volume?.setVolume(0.1);
 
-            const resource = createAudioResource(stream, {
-                inlineVolume: true,
-            });
-            resource.volume?.setVolume(0.1);
-
-            // Wait for the stream to preload some sec(2500)
-            await new Promise(async resolve => {
-                setTimeout(resolve, 2500);
-            });
-
-            player.unpause();
-            player.play(resource);
+                // Wait for the stream to preload some sec(2500)
+                await new Promise(async resolve => {
+                    setTimeout(resolve, 2500);
+                });
+                player.unpause();
+                player.play(resource);
+            } catch (error) {
+                console.log("Skip this wrong track", error);
+                currentTrackIndex++;
+                playNext(currentTrackIndex);
+                updatePanel(currentTrackIndex);
+            }
         }
         else {
             connection.destroy();
