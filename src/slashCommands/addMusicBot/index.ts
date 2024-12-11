@@ -1,4 +1,4 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonInteraction, CacheType, ChatInputCommandInteraction, EmbedBuilder, EmbedFooterOptions, GuildMember, TextChannel } from "discord.js";
+import { ActionRowBuilder, ButtonBuilder, ButtonInteraction, CacheType, ChannelType, ChatInputCommandInteraction, EmbedBuilder, EmbedFooterOptions, GuildMember, TextChannel } from "discord.js";
 import { AudioPlayerStatus, createAudioPlayer, createAudioResource, joinVoiceChannel } from "@discordjs/voice";
 import { createSlashCommand } from "../../command";
 import { SlashCommand, CommandOption, OptionDataType, CommandOptionType } from "../../type";
@@ -9,6 +9,8 @@ import { music_previousButton, music_playButton, music_pauseButton, music_nextBu
 import { EventEmitter } from 'events';
 import sharp from "sharp";
 import axios from "axios";
+import { createChannel } from "../../channelSetting";
+import { Database, GuildFields } from "../../database";
 
 /**Init Command info */
 const initCommandInfo: Readonly<SlashCommand> = {
@@ -46,6 +48,10 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
         playlist = await ytpl(playlistURL);
     } catch (error) {
         console.error('Failed to fetch playlist');
+        await data.reply({
+            content: '❌ 無法辨識此YT播放清單，網址是否有照格式?',
+            ephemeral: true,
+        });
         return;
     }
 
@@ -58,6 +64,12 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
             ephemeral: true,
         });
         return;
+    }
+    else {
+        await data.reply({
+            content: '✅ 已準備建立頻道放置音樂面板！',
+            ephemeral: true,
+        });
     }
 
     const buttonRowPlayState = new ActionRowBuilder<ButtonBuilder>()
@@ -83,11 +95,26 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
             music_urlButton
         );
 
-    // 然後將這兩行放在 components 陣列中
-    const panel = await data.reply({
+    const category: Array<{ category_id: string }> = new Database().useGuildTable()
+        .select(GuildFields.CategoryId)
+        .where(GuildFields.ServerId, data.guildId)
+        .execute();
+
+    const musicChannel = await createChannel(
+        data.guild!,
+        "播放室",
+        ChannelType.GuildText,
+        {
+            ViewChannel: true,
+            SendMessages: false,
+        },
+        category[0].category_id
+    ) as TextChannel;
+
+    /**音樂面板訊息傳送 */
+    const panel = await musicChannel.send({
         embeds: [musicPanel],
         components: [buttonRowPlayState, buttonRowLink],
-        fetchReply: true, // 確保獲取可編輯的訊息
     });
 
     let embeds: EmbedBuilder;
@@ -143,6 +170,7 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
         else {
             connection.destroy();
             await panel.delete();
+            await musicChannel.delete();
             playerEventEmitter.removeAllListeners();
         }
     }
@@ -306,8 +334,9 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
         player.pause();
         playerEventEmitter.removeAllListeners();
         connection.destroy();
+        mes.delete();
         await panel.delete();
-        setTimeout(() => { mes.delete() }, 500);
+        await musicChannel.delete();
     });
 };
 
