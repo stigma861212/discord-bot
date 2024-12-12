@@ -1,4 +1,4 @@
-import { ChannelType, Client, Events, TextChannel } from "discord.js";
+import { CategoryChannel, ChannelType, Client, Events, TextChannel } from "discord.js";
 import { EventMoudle } from "../../type";
 import { Database, GuildFields, YoutuberSubscribeFields } from "../../database";
 import { announcementInfo } from "../../announcement";
@@ -20,11 +20,16 @@ export const action = async (client: Client<boolean>) => {
     await checkGuildsExist(client);
     if (client.guilds.cache.size == 0) return;
     await sendAnnouncement(client);
+    await cleanMusicServe(client);
     setInterval(() => {
         checkAndNotify(client);
     }, 60 * 1000);
 }
 
+/**
+ * Clean up unused server data in the backend.
+ * @param client 
+ */
 const checkGuildsExist = async (client: Client<boolean>) => {
     const dbData: Array<{ server_id: string, textNotice_id: string, server_name: string }> = new Database().useGuildTable()
         .select(GuildFields.ServerId)
@@ -41,6 +46,29 @@ const checkGuildsExist = async (client: Client<boolean>) => {
         console.log("These server IDs are not in the bot's cache:", missingGuilds.map(data => [data.server_id, data.server_name]));
         missingGuilds.map(data => new Database().useGuildTable().where(GuildFields.ServerId, data.server_id).delete(true));
     }
+}
+
+const cleanMusicServe = async (client: Client<boolean>) => {
+    const data: Array<{ server_id: string, category_id: string, textHome_id: string, textNotice_id: string, textYTNotice_id: string }> = new Database().useGuildTable()
+        .select(GuildFields.ServerId)
+        .select(GuildFields.CategoryId)
+        .select(GuildFields.TextHomeId)
+        .select(GuildFields.TextNoticeId)
+        .select(GuildFields.TextYTNoticeId)
+        .execute();
+    client.guilds.cache.forEach((guild) => {
+        data.forEach(element => {
+            if (guild.id == element.server_id) {
+                const category = guild.channels.cache.get(element.category_id) as CategoryChannel;
+                const idList = [element.textHome_id, element.textNotice_id, element.textYTNotice_id];
+                category.children.cache.forEach(channel => {
+                    if (!idList.includes(channel.id)) {
+                        guild.channels.cache.get(channel.id)?.delete();
+                    }
+                });
+            }
+        });
+    })
 }
 
 const sendAnnouncement = async (client: Client<boolean>) => {
@@ -116,7 +144,7 @@ const checkAndNotify = async (client: Client<boolean>) => {
 }
 
 /**
- * Vedio notice time, check if time minutes is correct set
+ * Video notice time, check if time minutes is correct set
  * @returns is correct or not
  */
 const isExactHour = () => {

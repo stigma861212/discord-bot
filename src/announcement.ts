@@ -11,7 +11,7 @@ export const announcementInfo: EmbedBuilder = new EmbedBuilder()
     .setTitle("小精靈更新資訊")
     .addFields(
         { name: `當前版本`, value: `${announcementVersion} 版` },
-        { name: `1. **修復多伺服器音樂播放器混亂且按鈕失敗問題**`, value: `目前音樂功能可在各伺服器同時使用` },
+        { name: `1. **小精靈重啟時會重置部分功能**`, value: `重置時會將音樂功能重置` },
     )
     .setTimestamp(Date.now())
 
