@@ -6,7 +6,7 @@ enum V3State {
 }
 /**Get youtube Username id */
 export const getUsernameId = async (username: string) => {
-    const channelURL = process.env.YOUTUBE_V3_URL + V3State.CHANNEL;
+    const channelURL = 'https://www.googleapis.com/youtube/v3/' + V3State.CHANNEL;
 
     return await axios.get(channelURL, {
         params: {
@@ -62,7 +62,7 @@ export const getUploaderId = async (videoId: string) => {
  * @returns yt video url list
  */
 export const getLatestNewVideo = async (id: string) => {
-    const channelURL = process.env.YOUTUBE_V3_URL + V3State.SEARCH;
+    const channelURL = 'https://www.googleapis.com/youtube/v3/' + V3State.SEARCH;
     /**video last upload time limit */
     const videoThreshold = 60;
 
