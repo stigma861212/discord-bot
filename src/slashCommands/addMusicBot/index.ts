@@ -71,6 +71,13 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
         return;
     }
     else {
+        const botMember = data.guild!.members.me!;
+
+        if (botMember.voice.channel) {
+            console.log(`小精靈已在 ${botMember.voice.channel.name} 語音頻道唱歌`);
+            return;
+        }
+
         await data.reply({
             content: '✅ 已準備建立頻道放置音樂面板！',
             ephemeral: true,
@@ -347,7 +354,6 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
         });
 
         playerEventEmitter.on('music_exit', async (interaction: ButtonInteraction<CacheType>) => {
-            console.log("music_exit");
             const targetData = activeTrackGuilds.get(interaction.guildId as string) as MusicBotData;
             const mes = await interaction.deferReply({ ephemeral: true });
             targetData.player.pause();
