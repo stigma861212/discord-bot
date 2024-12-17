@@ -1,4 +1,4 @@
-import { EmbedBuilder } from "discord.js";
+import { ColorResolvable, EmbedBuilder } from "discord.js";
 
 /**Current version */
 const announcementVersion: string = "測試";
@@ -101,4 +101,19 @@ export const purgeSuccess = (amount: number, user?: string): string => {
 }
 
 export const purgeError: string = '該頻道不支持批量刪除訊息，僅支持一般文字頻道。\n如有刪除需求請私訊管理員'
+//#endregion
+
+//#region role
+export const roleName: string = '小精靈觀察員';
+export const roleReason: string = '負責觀看小精靈';
+export const roleColor: ColorResolvable = '#CB1B45';
+export const getRoleReact: string = '🎟️';
+
+//#endregion
+
+//#region channel
+export const categoryName: string = '小精靈生活圈';
+export const textHomeName: string = '小精靈窩';
+export const textNoticeName: string = '小精靈公告區';
+export const textYTNotice: string = '小精靈訂閱影片通知區';
 //#endregion

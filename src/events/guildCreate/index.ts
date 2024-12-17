@@ -1,7 +1,7 @@
 import { CategoryChannel, ChannelType, Events, Guild, GuildChannelCreateOptions, TextChannel } from "discord.js";
 import { EventMoudle } from "../../type";
 import { Database, GuildFields } from "../../database";
-import { announcementInfo, getRolesInfo } from "../../announcement";
+import { announcementInfo, categoryName, getRoleReact, getRolesInfo, roleColor, roleName, roleReason, textHomeName, textNoticeName, textYTNotice } from "../../announcement";
 import { createChannel, createRolePermisson } from "../../channelSetting";
 
 export const event: EventMoudle = {
@@ -14,14 +14,14 @@ export const action = async (guild: Guild) => {
 
     try {
         const botViewer = await guild.roles.create({
-            name: "小精靈觀察員",
-            color: "#CB1B45",
-            reason: "負責觀看小精靈"
+            name: roleName,
+            color: roleColor,
+            reason: roleReason
         });
 
         const categoryChannel = await createChannel(
             guild,
-            "小精靈生活圈",
+            categoryName,
             ChannelType.GuildCategory,
             {
                 ViewChannel: false,
@@ -31,7 +31,7 @@ export const action = async (guild: Guild) => {
 
         const textHomeChannel = await createChannel(
             guild,
-            "小精靈窩",
+            textHomeName,
             ChannelType.GuildText,
             {
                 ViewChannel: true,
@@ -42,7 +42,7 @@ export const action = async (guild: Guild) => {
 
         const textNoticeChannel = await createChannel(
             guild,
-            "小精靈公告區",
+            textNoticeName,
             ChannelType.GuildText,
             {
                 ViewChannel: false,
@@ -56,7 +56,7 @@ export const action = async (guild: Guild) => {
 
         const textYTNoticeChannel = await createChannel(
             guild,
-            "小精靈訂閱影片通知區",
+            textYTNotice,
             ChannelType.GuildText,
             {
                 ViewChannel: false,
@@ -82,7 +82,7 @@ export const action = async (guild: Guild) => {
             embeds: [getRolesInfo],
             allowedMentions: { parse: [] }
         })
-        await mes.react("🎟️");
+        await mes.react(getRoleReact);
 
         await textNoticeChannel.send({
             embeds: [announcementInfo],
