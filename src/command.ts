@@ -1,4 +1,4 @@
-import { ContextMenuCommandBuilder, SlashCommandBuilder, SlashCommandIntegerOption, SlashCommandOptionsOnlyBuilder } from "discord.js";
+import { ContextMenuCommandBuilder, LocalizationMap, SlashCommandBuilder, SlashCommandIntegerOption, SlashCommandOptionsOnlyBuilder } from "discord.js";
 import { CommandOption, CommandOptionType } from "./type";
 import ClientDataManager from "./clientDataManager";
 
@@ -18,11 +18,15 @@ export const createSlashCommand = (name: Readonly<string>, description: Readonly
     optionsData.forEach(data => {
         switch (data.type) {
             case CommandOptionType.STRING:
-                command.addStringOption(option =>
+                command.addStringOption(option => {
                     option
                         .setName(data.name)
                         .setDescription(data.description)
-                        .setRequired(data.required)
+                        .setRequired(data.required);
+                    if (data.nameLocalizations) option.setNameLocalizations(data.nameLocalizations);
+                    if (data.descriptionLocalizations) option.setDescriptionLocalizations(data.descriptionLocalizations);
+                    return option;
+                }
                 );
                 break;
             case CommandOptionType.INTEGER:
@@ -33,48 +37,65 @@ export const createSlashCommand = (name: Readonly<string>, description: Readonly
                         .setRequired(data.required)
                     if (data.maxValue) option.setMaxValue(data.maxValue);
                     if (data.minValue) option.setMinValue(data.minValue);
+                    if (data.nameLocalizations) option.setNameLocalizations(data.nameLocalizations);
+                    if (data.descriptionLocalizations) option.setDescriptionLocalizations(data.descriptionLocalizations);
                     return option;
                 });
                 break;
             case CommandOptionType.BOOLEAN:
-                command.addBooleanOption(option =>
+                command.addBooleanOption(option => {
                     option
                         .setName(data.name)
                         .setDescription(data.description)
                         .setRequired(data.required)
-                );
+                    if (data.nameLocalizations) option.setNameLocalizations(data.nameLocalizations);
+                    if (data.descriptionLocalizations) option.setDescriptionLocalizations(data.descriptionLocalizations);
+                    return option;
+                });
                 break;
             case CommandOptionType.CHANNEL:
-                command.addChannelOption(option =>
+                command.addChannelOption(option => {
                     option
                         .setName(data.name)
                         .setDescription(data.description)
                         .setRequired(data.required)
-                );
+                    if (data.nameLocalizations) option.setNameLocalizations(data.nameLocalizations);
+                    if (data.descriptionLocalizations) option.setDescriptionLocalizations(data.descriptionLocalizations);
+                    return option;
+                });
                 break;
             case CommandOptionType.MENTIONABLE:
-                command.addMentionableOption(option =>
+                command.addMentionableOption(option => {
                     option
                         .setName(data.name)
                         .setDescription(data.description)
                         .setRequired(data.required)
-                );
+                    if (data.nameLocalizations) option.setNameLocalizations(data.nameLocalizations);
+                    if (data.descriptionLocalizations) option.setDescriptionLocalizations(data.descriptionLocalizations);
+                    return option;
+                });
                 break;
             case CommandOptionType.ROLE:
-                command.addRoleOption(option =>
+                command.addRoleOption(option => {
                     option
                         .setName(data.name)
                         .setDescription(data.description)
                         .setRequired(data.required)
-                );
+                    if (data.nameLocalizations) option.setNameLocalizations(data.nameLocalizations);
+                    if (data.descriptionLocalizations) option.setDescriptionLocalizations(data.descriptionLocalizations);
+                    return option;
+                });
                 break;
             case CommandOptionType.USER:
-                command.addUserOption(option =>
+                command.addUserOption(option => {
                     option
                         .setName(data.name)
                         .setDescription(data.description)
                         .setRequired(data.required)
-                );
+                    if (data.nameLocalizations) option.setNameLocalizations(data.nameLocalizations);
+                    if (data.descriptionLocalizations) option.setDescriptionLocalizations(data.descriptionLocalizations);
+                    return option;
+                });
                 break;
         }
     });
@@ -82,10 +103,11 @@ export const createSlashCommand = (name: Readonly<string>, description: Readonly
     return command;
 }
 
-export const createContextMenuCommand = (name: Readonly<string>, type: number) => {
+export const createContextMenuCommand = (name: Readonly<string>, type: number, nameLocalizations?: LocalizationMap) => {
     const command = new ContextMenuCommandBuilder()
         .setName(name)
-        .setType(type)  // 3 代表 'MESSAGE' 型的上下文菜單命令
+        .setType(type);  // 3 代表 'MESSAGE' 型的上下文菜單命令
+    if (nameLocalizations) command.setNameLocalizations(nameLocalizations);
 
     return command;
 }

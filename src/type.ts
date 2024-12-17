@@ -1,4 +1,4 @@
-import { Channel, Events, Role, User } from "discord.js";
+import { Channel, Events, LocalizationMap, Role, User } from "discord.js";
 
 export type EventMoudle = {
     /**event name */
@@ -32,6 +32,7 @@ export enum OptionType {
 export type ContextMenuCommand = {
     name: string;
     type: number;
+    nameLocalizations?: LocalizationMap;
 };
 
 export type OptionDataType = string | number | boolean | Channel | Role | User;
@@ -39,6 +40,8 @@ export type OptionDataType = string | number | boolean | Channel | Role | User;
 export type SlashCommand = {
     name: string;
     description: string;
+    nameLocalizations?: LocalizationMap;
+    descriptionLocalizations?: LocalizationMap;
 };
 
 export type CommandOption = SlashCommand & {

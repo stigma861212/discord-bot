@@ -5,7 +5,13 @@ import { SlashCommand, CommandOption, CommandOptionType, OptionDataType } from "
 /**Init Command info */
 const initCommandInfo: Readonly<SlashCommand> = {
     name: "purge",
-    description: "Delete a specified number of messages, up to 100."
+    description: "Delete a specified number of messages, up to 100.",
+    nameLocalizations: {
+        'zh-TW': '刪除頻道訊息',
+    },
+    descriptionLocalizations: {
+        'zh-TW': '刪除當前頻道最新訊息',
+    }
 }
 
 /**Init Command option group info in order */
@@ -16,13 +22,25 @@ const initOptionInfoGroup: Readonly<Array<CommandOption>> = [
         required: true,
         type: CommandOptionType.INTEGER,
         minValue: 1,
-        maxValue: 100
+        maxValue: 100,
+        nameLocalizations: {
+            'zh-TW': '數量',
+        },
+        descriptionLocalizations: {
+            'zh-TW': '刪除最新訊息數量，最小為1最大為100',
+        }
     },
     {
         name: 'member',
         description: 'witch member.',
         required: false,
         type: CommandOptionType.USER,
+        nameLocalizations: {
+            'zh-TW': '成員',
+        },
+        descriptionLocalizations: {
+            'zh-TW': '僅刪除選擇成員的最新訊息',
+        }
     }
 ];
 
@@ -37,6 +55,13 @@ function getOptionsName(): Array<string> {
 
 /**Create command */
 export const command = createSlashCommand(initCommandInfo.name, initCommandInfo.description, initOptionInfoGroup);
+
+if (initCommandInfo.nameLocalizations) {
+    command.setNameLocalizations(initCommandInfo.nameLocalizations);
+}
+if (initCommandInfo.descriptionLocalizations) {
+    command.setDescriptionLocalizations(initCommandInfo.descriptionLocalizations);
+}
 
 /**Command action */
 export const action = async (data: ChatInputCommandInteraction, options: Array<OptionDataType>) => {

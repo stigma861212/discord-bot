@@ -1,4 +1,4 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonInteraction, CacheType, ChannelType, ChatInputCommandInteraction, EmbedBuilder, EmbedFooterOptions, GuildMember, Message, TextChannel } from "discord.js";
+import { ActionRowBuilder, ButtonBuilder, ButtonInteraction, CacheType, ChannelType, ChatInputCommandInteraction, EmbedBuilder, GuildMember, Message, TextChannel } from "discord.js";
 import { AudioPlayer, AudioPlayerStatus, VoiceConnection, createAudioPlayer, createAudioResource, joinVoiceChannel } from "@discordjs/voice";
 import { createSlashCommand } from "../../command";
 import { SlashCommand, CommandOption, OptionDataType, CommandOptionType } from "../../type";
@@ -20,7 +20,13 @@ let activeTrackGuilds: Map<string, MusicBotData> = new Map();
 /**Init Command info */
 const initCommandInfo: Readonly<SlashCommand> = {
     name: "addmusicbot",
-    description: "add music bot into your voice channel"
+    description: "add music bot into your voice channel",
+    nameLocalizations: {
+        'zh-TW': '呼叫音樂機器人',
+    },
+    descriptionLocalizations: {
+        'zh-TW': '新增音樂機器人至你的語音頻道',
+    }
 }
 
 /**Init Command option group info in order */
@@ -30,7 +36,13 @@ const initOptionInfoGroup: Readonly<Array<CommandOption>> = [
         description: 'Youtube playlist url.',
         required: true,
         type: CommandOptionType.STRING,
-    },
+        nameLocalizations: {
+            'zh-TW': 'url',
+        },
+        descriptionLocalizations: {
+            'zh-TW': 'Youtube播放清單網址',
+        }
+    }
 ];
 
 /**Get OptionInfoGroup each child name */
@@ -43,7 +55,14 @@ function getOptionsName(): Array<string> {
 }
 
 /**Create command */
-export const command = createSlashCommand(initCommandInfo.name, initCommandInfo.description, initOptionInfoGroup);
+export const command = createSlashCommand(initCommandInfo.name, initCommandInfo.description, initOptionInfoGroup)
+
+if (initCommandInfo.nameLocalizations) {
+    command.setNameLocalizations(initCommandInfo.nameLocalizations);
+}
+if (initCommandInfo.descriptionLocalizations) {
+    command.setDescriptionLocalizations(initCommandInfo.descriptionLocalizations);
+}
 
 /**Command action */
 export const action = async (data: ChatInputCommandInteraction, options: Array<OptionDataType>) => {

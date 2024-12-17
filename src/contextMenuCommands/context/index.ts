@@ -5,7 +5,10 @@ import { CommandOption, OptionDataType, ContextMenuCommand } from "../../type";
 /**Init Command info */
 const initCommandInfo: Readonly<ContextMenuCommand> = {
     name: "contextmenutest",
-    type: 3
+    type: 3,
+    nameLocalizations: {
+        'zh-TW': '應用程式測試用指令',
+    },
 }
 
 /**Init Command option group info in order */
@@ -21,7 +24,7 @@ function getOptionsName(): Array<string> {
 }
 
 /**Create command */
-export const command = createContextMenuCommand(initCommandInfo.name, initCommandInfo.type);
+export const command = createContextMenuCommand(initCommandInfo.name, initCommandInfo.type, initCommandInfo.nameLocalizations);
 
 /**Command action */
 export const action = async (data: ChatInputCommandInteraction) => {

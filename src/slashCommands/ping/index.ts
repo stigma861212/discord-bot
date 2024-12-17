@@ -5,7 +5,13 @@ import { SlashCommand, CommandOption, OptionDataType } from "../../type";
 /**Init Command info */
 const initCommandInfo: Readonly<SlashCommand> = {
     name: "ping",
-    description: "Ping test"
+    description: "Ping test",
+    nameLocalizations: {
+        'zh-TW': '發出測試訊息',
+    },
+    descriptionLocalizations: {
+        'zh-TW': '測試機器人指令回傳狀況',
+    }
 }
 
 /**Init Command option group info in order */
@@ -22,6 +28,13 @@ function getOptionsName(): Array<string> {
 
 /**Create command */
 export const command = createSlashCommand(initCommandInfo.name, initCommandInfo.description, initOptionInfoGroup);
+
+if (initCommandInfo.nameLocalizations) {
+    command.setNameLocalizations(initCommandInfo.nameLocalizations);
+}
+if (initCommandInfo.descriptionLocalizations) {
+    command.setDescriptionLocalizations(initCommandInfo.descriptionLocalizations);
+}
 
 /**Command action */
 export const action = async (data: ChatInputCommandInteraction, options: Array<OptionDataType>) => {

@@ -6,7 +6,13 @@ import { Database, GuildFields } from "../../database";
 /**Init Command info */
 const initCommandInfo: Readonly<SlashCommand> = {
     name: "deletebotchannel",
-    description: "delete Bot Create Channel"
+    description: "delete Bot Create Channel",
+    nameLocalizations: {
+        'zh-TW': '刪除機器人頻道列表',
+    },
+    descriptionLocalizations: {
+        'zh-TW': '刪除機器人加入時所新增的頻道',
+    }
 }
 
 /**Init Command option group info in order */
@@ -23,6 +29,13 @@ function getOptionsName(): Array<string> {
 
 /**Create command */
 export const command = createSlashCommand(initCommandInfo.name, initCommandInfo.description, initOptionInfoGroup);
+
+if (initCommandInfo.nameLocalizations) {
+    command.setNameLocalizations(initCommandInfo.nameLocalizations);
+}
+if (initCommandInfo.descriptionLocalizations) {
+    command.setDescriptionLocalizations(initCommandInfo.descriptionLocalizations);
+}
 
 /**Command action */
 export const action = async (data: ChatInputCommandInteraction, options: Array<OptionDataType>) => {

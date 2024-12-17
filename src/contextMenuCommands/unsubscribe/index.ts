@@ -7,7 +7,10 @@ import { Database, YoutuberSubscribeFields } from "../../database";
 /**Init Command info */
 const initCommandInfo: Readonly<ContextMenuCommand> = {
     name: "unsubscribe",
-    type: 3
+    type: 3,
+    nameLocalizations: {
+        'zh-TW': '取消Youtube頻道影片訂閱',
+    },
 }
 
 /**Init Command option group info in order */
@@ -23,7 +26,7 @@ function getOptionsName(): Array<string> {
 }
 
 /**Create command */
-export const command = createContextMenuCommand(initCommandInfo.name, initCommandInfo.type);
+export const command = createContextMenuCommand(initCommandInfo.name, initCommandInfo.type, initCommandInfo.nameLocalizations);
 
 /**Command action */
 export const action = async (data: MessageContextMenuCommandInteraction) => {

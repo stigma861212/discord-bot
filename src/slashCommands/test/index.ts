@@ -5,7 +5,13 @@ import { SlashCommand, CommandOption, CommandOptionType, OptionDataType } from "
 /**Init Command info */
 const initCommandInfo: Readonly<SlashCommand> = {
     name: "slashtest",
-    description: "slashtest"
+    description: "slashtest",
+    nameLocalizations: {
+        'zh-TW': '斜線指令測試',
+    },
+    descriptionLocalizations: {
+        'zh-TW': '帶參數的測試用指令',
+    }
 }
 
 /**Init Command option group info in order */
@@ -14,13 +20,25 @@ const initOptionInfoGroup: Readonly<Array<CommandOption>> = [
         name: 'test1',
         description: 'test 1!!!',
         required: true,
-        type: CommandOptionType.STRING
+        type: CommandOptionType.STRING,
+        nameLocalizations: {
+            'zh-TW': '測試參數1',
+        },
+        descriptionLocalizations: {
+            'zh-TW': '參數1',
+        }
     },
     {
         name: 'test2',
         description: 'test 2!!!',
         required: true,
-        type: CommandOptionType.STRING
+        type: CommandOptionType.STRING,
+        nameLocalizations: {
+            'zh-TW': '測試參數2',
+        },
+        descriptionLocalizations: {
+            'zh-TW': '參數2',
+        }
     }
 ];
 
@@ -35,6 +53,13 @@ function getOptionsName(): Array<string> {
 
 /**Create command */
 export const command = createSlashCommand(initCommandInfo.name, initCommandInfo.description, initOptionInfoGroup);
+
+if (initCommandInfo.nameLocalizations) {
+    command.setNameLocalizations(initCommandInfo.nameLocalizations);
+}
+if (initCommandInfo.descriptionLocalizations) {
+    command.setDescriptionLocalizations(initCommandInfo.descriptionLocalizations);
+}
 
 /**Command action */
 export const action = async (data: ChatInputCommandInteraction, options: Array<OptionDataType>) => {

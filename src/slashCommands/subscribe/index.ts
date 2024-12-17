@@ -7,7 +7,13 @@ import { getUsernameId } from "../../youTubeDataAPIv3";
 /**Init Command info */
 const initCommandInfo: Readonly<SlashCommand> = {
     name: "subscribe",
-    description: "Subscribe to a YouTuber to get notified of new video posts every hour."
+    description: "Subscribe to a YouTuber to get notified of new video posts every hour.",
+    nameLocalizations: {
+        'zh-TW': '頻道影片訂閱',
+    },
+    descriptionLocalizations: {
+        'zh-TW': '訂閱指定YouTube頻道，每小時在頻道進行新影片通知',
+    }
 }
 
 /**Init Command option group info in order */
@@ -16,7 +22,13 @@ const initOptionInfoGroup: Readonly<Array<CommandOption>> = [
         name: 'url',
         description: 'Youtuber profile url',
         required: true,
-        type: CommandOptionType.STRING
+        type: CommandOptionType.STRING,
+        nameLocalizations: {
+            'zh-TW': 'url',
+        },
+        descriptionLocalizations: {
+            'zh-TW': 'Youtube頻道主頁網址',
+        }
     }
 ];
 
@@ -31,6 +43,13 @@ function getOptionsName(): Array<string> {
 
 /**Create command */
 export const command = createSlashCommand(initCommandInfo.name, initCommandInfo.description, initOptionInfoGroup);
+
+if (initCommandInfo.nameLocalizations) {
+    command.setNameLocalizations(initCommandInfo.nameLocalizations);
+}
+if (initCommandInfo.descriptionLocalizations) {
+    command.setDescriptionLocalizations(initCommandInfo.descriptionLocalizations);
+}
 
 /**Command action */
 export const action = async (data: ChatInputCommandInteraction, options: Array<OptionDataType>) => {
