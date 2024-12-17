@@ -3,6 +3,7 @@ import { createContextMenuCommand } from "../../command";
 import { CommandOption, ContextMenuCommand } from "../../type";
 import { getUploaderId } from "../../youTubeDataAPIv3";
 import { Database, YoutuberSubscribeFields } from "../../database";
+import { unsubscribeCheckUrlFormat, unsubscribeError, unsubscribeNoticeError, unsubscribeSuccess } from "../../announcement";
 
 /**Init Command info */
 const initCommandInfo: Readonly<ContextMenuCommand> = {
@@ -32,13 +33,13 @@ export const command = createContextMenuCommand(initCommandInfo.name, initComman
 export const action = async (data: MessageContextMenuCommandInteraction) => {
     const message = data.targetMessage;
     if (message.author.id != process.env.APPLICATION_ID) {
-        data.reply("此功能僅可對小精靈傳送的訂閱訊息使用");
+        data.reply(unsubscribeNoticeError);
     }
     else if (message.content.includes("https://www.youtube.com")) {
         const videoId = message.content.split("=")[1];
         const ytId = await getUploaderId(videoId);
         if (ytId == undefined) {
-            data.reply(`小精靈查詢不到此youtube影片資料，請確認影片格式是否正確`);
+            data.reply(unsubscribeCheckUrlFormat);
         }
         else {
             const result = new Database().useYoutuberSubscribeTable()
@@ -47,16 +48,15 @@ export const action = async (data: MessageContextMenuCommandInteraction) => {
                 .delete(true);
 
             if (result) {
-                data.reply("小精靈成功刪除訂閱資料");
+                data.reply(unsubscribeSuccess);
             } else {
-                data.reply("小精靈找不到伺服器有訂閱此頻道資料或訂閱資料格式有誤");
+                data.reply(unsubscribeError);
             }
         }
     }
     else {
-        data.reply("此功能僅可對小精靈傳送的訂閱訊息使用");
+        data.reply(unsubscribeNoticeError);
     }
-
 };
 
 /**Get all `setName` string in the command in order  */

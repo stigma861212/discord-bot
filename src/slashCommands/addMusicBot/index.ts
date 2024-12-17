@@ -4,7 +4,7 @@ import { createSlashCommand } from "../../command";
 import { SlashCommand, CommandOption, OptionDataType, CommandOptionType } from "../../type";
 import ytpl from "ytpl";
 import ytdl from "@distube/ytdl-core";
-import { musicPanel } from "../../announcement";
+import { addmusicbotErrorURLFormat, addmusicbotSuccess, addmusicbotUsed, addmusicbotUserExist, musicPanel } from "../../announcement";
 import { music_previousButton, music_playButton, music_pauseButton, music_nextButton, music_exitButton, music_randomButton, music_urlButton } from "../../button";
 import { EventEmitter } from 'events';
 import sharp from "sharp";
@@ -73,7 +73,7 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
     } catch (error) {
         console.error('Failed to fetch playlist');
         await data.reply({
-            content: '❌ 無法辨識此YT播放清單，網址是否有照格式?',
+            content: addmusicbotErrorURLFormat,
             ephemeral: true,
         });
         return;
@@ -84,7 +84,7 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
     const voiceChannel = (data.member as GuildMember).voice?.channel;
     if (!voiceChannel) {
         await data.reply({
-            content: '⚠️ 請先加入語音頻道再使用此指令！',
+            content: addmusicbotUserExist,
             ephemeral: true,
         });
         return;
@@ -93,12 +93,15 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
         const botMember = data.guild!.members.me!;
 
         if (botMember.voice.channel) {
-            console.log(`小精靈已在 ${botMember.voice.channel.name} 語音頻道唱歌`);
+            await data.reply({
+                content: addmusicbotUsed,
+                ephemeral: true,
+            });
             return;
         }
 
         await data.reply({
-            content: '✅ 已準備建立頻道放置音樂面板！',
+            content: addmusicbotSuccess,
             ephemeral: true,
         });
     }

@@ -1,6 +1,6 @@
 import { ChatInputCommandInteraction } from "discord.js";
 import { createContextMenuCommand } from "../../command";
-import { CommandOption, OptionDataType, ContextMenuCommand } from "../../type";
+import { CommandOption, ContextMenuCommand } from "../../type";
 
 /**Init Command info */
 const initCommandInfo: Readonly<ContextMenuCommand> = {

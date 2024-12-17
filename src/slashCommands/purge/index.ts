@@ -1,6 +1,7 @@
 import { ChatInputCommandInteraction, DMChannel, MediaChannel, TextChannel, User, VoiceChannel } from "discord.js";
 import { createSlashCommand } from "../../command";
 import { SlashCommand, CommandOption, CommandOptionType, OptionDataType } from "../../type";
+import { purgeError, purgeSuccess } from "../../announcement";
 
 /**Init Command info */
 const initCommandInfo: Readonly<SlashCommand> = {
@@ -80,21 +81,21 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
 
             const deleteMessage = await channel.bulkDelete(messagesDelete, true);
             const mention = `<@${userId}>`;
-            await data.followUp({ content: `已成功刪除 ${deleteMessage.size} 條來自 ${mention} 的最新訊息` });
+            await data.followUp({ content: purgeSuccess(deleteMessage.size, mention) });
             setTimeout(async () => {
                 await data.deleteReply();
             }, 5000);
         }
         else {
             const deleteMessage = await channel.bulkDelete(deleteAmount, true)
-            await data.followUp({ content: `已成功刪除 ${deleteMessage.size} 條訊息` });
+            await data.followUp({ content: purgeSuccess(deleteMessage.size) });
             setTimeout(async () => {
                 await data.deleteReply();
             }, 5000);
         }
     }
     else {
-        await data.followUp({ content: "該頻道不支持批量刪除訊息，僅支持一般文字頻道。\n如有刪除需求請私訊管理員", ephemeral: true });
+        await data.followUp({ content: purgeError, ephemeral: true });
         setTimeout(async () => {
             await data.deleteReply();
         }, 10000);

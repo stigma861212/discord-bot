@@ -3,6 +3,7 @@ import { createSlashCommand } from "../../command";
 import { SlashCommand, CommandOption, CommandOptionType, OptionDataType } from "../../type";
 import { Database, GuildFields, YoutuberSubscribeFields } from "../../database";
 import { getUsernameId } from "../../youTubeDataAPIv3";
+import { subscribeErrorUrlFormat, subscribeRepeat, subscribeSuccess } from "../../announcement";
 
 /**Init Command info */
 const initCommandInfo: Readonly<SlashCommand> = {
@@ -69,10 +70,10 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
             [YoutuberSubscribeFields.TextYTNoticeId]: noticeId[0].textYTNotice_id,
         }, true) as boolean;
 
-        data.reply(result ? `訂閱 ${ytID} 成功 \n${options[0]}` : `已經訂閱過${ytID}了，是不是在搞??? \n${options[0]}`);
+        data.reply(result ? subscribeSuccess(ytID, options[0] as string) : subscribeRepeat(ytID, options[0] as string));
     }
     else {
-        data.reply(`你確定網址沒錯?`);
+        data.reply(subscribeErrorUrlFormat);
     }
 };
 
