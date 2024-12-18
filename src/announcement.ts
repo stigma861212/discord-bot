@@ -69,6 +69,8 @@ export const unsubscribeError: string = '小精靈找不到伺服器有訂閱此
 //#endregion
 
 //#region addmusicbot reply
+export const addmusicbotChannel: string = '播放室';
+
 export const addmusicbotErrorURLFormat: string = '❌ 無法辨識此YT播放清單，網址是否有照格式?';
 
 export const addmusicbotUserExist: string = '⚠️ 請先加入語音頻道再使用此指令！';

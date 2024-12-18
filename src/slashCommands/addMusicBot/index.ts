@@ -4,7 +4,7 @@ import { createSlashCommand } from "../../command";
 import { SlashCommand, CommandOption, OptionDataType, CommandOptionType } from "../../type";
 import ytpl from "ytpl";
 import ytdl from "@distube/ytdl-core";
-import { addmusicbotErrorURLFormat, addmusicbotSuccess, addmusicbotUsed, addmusicbotUserExist, musicPanel } from "../../announcement";
+import { addmusicbotChannel, addmusicbotErrorURLFormat, addmusicbotSuccess, addmusicbotUsed, addmusicbotUserExist, musicPanel } from "../../announcement";
 import { music_previousButton, music_playButton, music_pauseButton, music_nextButton, music_exitButton, music_randomButton, music_urlButton } from "../../button";
 import { EventEmitter } from 'events';
 import sharp from "sharp";
@@ -136,7 +136,7 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
 
     const musicChannel = await createChannel(
         data.guild!,
-        "播放室",
+        addmusicbotChannel,
         ChannelType.GuildText,
         {
             ViewChannel: true,
