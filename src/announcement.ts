@@ -1,7 +1,7 @@
 import { ColorResolvable, EmbedBuilder } from "discord.js";
 
 /**Current version */
-const announcementVersion: string = "測試";
+const announcementVersion: string = "正式";
 
 /**
  * Update info content
@@ -11,10 +11,8 @@ export const announcementInfo: EmbedBuilder = new EmbedBuilder()
     .setTitle("小精靈更新資訊")
     .addFields(
         { name: `當前版本`, value: `${announcementVersion} 版` },
-        { name: `1. **機器人本地化**`, value: `根據discord語言版本修改語言` },
-        { name: `2. **音樂功能修正**`, value: `修正同伺服器語音頻道搶奪小精靈控制權` },
-        { name: `3. **系統內部通知整合**`, value: `整合所有訊息通知設定` },
-        { name: `4. **專案套件更新**`, value: `更新套件對YT相關功能穩定度` },
+        { name: `1. **音樂指令防'呆'**`, value: `現在輸入錯誤後不會卡住` },
+        { name: `2. **專案套件更新**`, value: `更新套件` },
     )
     .setTimestamp(Date.now())
 

@@ -68,10 +68,12 @@ if (initCommandInfo.descriptionLocalizations) {
 export const action = async (data: ChatInputCommandInteraction, options: Array<OptionDataType>) => {
     let playlist: ytpl.Result;
     let playlistURL: string = options[0] as string;
+
     try {
-        playlist = await ytpl(playlistURL);
+        const url = new URL(playlistURL);
+        playlist = await ytpl(url.href);
     } catch (error) {
-        console.error('Failed to fetch playlist');
+        console.error('Failed to fetch playlist', error);
         await data.reply({
             content: addmusicbotErrorURLFormat,
             ephemeral: true,
@@ -167,7 +169,7 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
     const musicBotData = new MusicBotData(playlist, musicChannel, panel, connection, player);
     activeTrackGuilds.set(data.guildId as string, musicBotData);
 
-    updatePanel(data.guildId as string, musicBotData);
+    updatePanel(musicBotData);
     playNext(data.guildId as string, musicBotData);
 
 
@@ -200,7 +202,7 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
                 console.log("Skip this wrong track", error);
                 target.currentTrackIndex++;
                 playNext(id, target);
-                updatePanel(id, target);
+                updatePanel(target);
             }
         }
         else {
@@ -215,7 +217,7 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
         }
     }
 
-    async function updatePanel(id: string, target: MusicBotData) {
+    async function updatePanel(target: MusicBotData) {
         if (target.currentTrackIndex < target.playlist.items.length) {
             const url = target.playlist.items[target.currentTrackIndex].url;
             const trackName = target.playlist.items[target.currentTrackIndex].title;
@@ -309,7 +311,7 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
         if (newState.status === AudioPlayerStatus.Idle) {
             musicBotData.currentTrackIndex++;
             playNext(data.guildId as string, musicBotData);
-            updatePanel(data.guildId as string, musicBotData);
+            updatePanel(musicBotData);
         }
     });
 
@@ -347,7 +349,7 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
                 targetData.player.pause();
                 targetData.currentTrackIndex++;
                 playNext(interaction.guildId as string, targetData);
-                updatePanel(interaction.guildId as string, targetData);
+                updatePanel(targetData);
             }
             setTimeout(() => { mes.delete() }, 500);
         });
@@ -359,7 +361,7 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
                 targetData.player.pause();
                 targetData.currentTrackIndex--;
                 playNext(interaction.guildId as string, targetData);
-                updatePanel(interaction.guildId as string, targetData);
+                updatePanel(targetData);
             }
             setTimeout(() => { mes.delete() }, 500);
         });
@@ -371,7 +373,7 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
             targetData.currentTrackIndex = 0;
             targetData.playlist.items.sort(() => Math.random() - 0.5);
             playNext(interaction.guildId as string, targetData);
-            updatePanel(interaction.guildId as string, targetData);
+            updatePanel(targetData);
             setTimeout(() => { mes.delete() }, 500);
         });
 
