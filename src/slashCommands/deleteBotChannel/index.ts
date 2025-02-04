@@ -50,7 +50,11 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
             await child.delete();
         }
         await channel.delete();
-        await data.followUp({ content: deleteBotChannelSuccess, ephemeral: true });
+        try {
+            await data.followUp({ content: deleteBotChannelSuccess, ephemeral: true });
+        } catch (error) {
+            console.log("user delete the channel in deleted channel");
+        }
     } catch (error) {
         console.log("delete channel error:", error);
         await data.followUp({ content: deleteBotChannelError });

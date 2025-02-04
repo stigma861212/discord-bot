@@ -1,0 +1,95 @@
+{
+    "needAnnouncement": true,
+    "announcementInfo": {
+        "title": "小精靈更新資訊",
+        "currentVersion": "當前版本",
+        "version": "正式版",
+        "color": [
+            255,
+            51,
+            51
+        ],
+        "fields": [
+            {
+                "name": "1. **專案套件更新**",
+                "value": "更新套件"
+            },
+            {
+                "name": "2. **自定義資源優化**",
+                "value": "集中管理更新內容"
+            }
+        ]
+    },
+    "getRolesInfo": {
+        "title": "領取身分組",
+        "description": "如需要訂閱影片通知請點擊下方🎟️來領取身分組",
+        "color": [
+            255,
+            51,
+            51
+        ]
+    },
+    "musicPanel": {
+        "title": "音樂名稱",
+        "description": "blank",
+        "color": [
+            255,
+            51,
+            51
+        ]
+    },
+    "subscribe": {
+        "success": [
+            "訂閱",
+            "成功 \n"
+        ],
+        "repeat": [
+            "已經訂閱過",
+            "了 \n"
+        ],
+        "errorUrlFormat": "網址格式有誤"
+    },
+    "unsubscribe": {
+        "noticeError": "此功能僅可對小精靈傳送的訂閱訊息使用",
+        "checkUrlFormat": "小精靈查詢不到此youtube影片資料，請確認影片格式是否正確",
+        "success": "小精靈成功刪除訂閱資料",
+        "error": "小精靈找不到伺服器有訂閱此頻道資料或訂閱資料格式有誤"
+    },
+    "addmusicbot": {
+        "channel": "播放室",
+        "errorURLFormat": "❌ 無法辨識此YT播放清單，網址是否有照格式?",
+        "userExist": "⚠️ 請先加入語音頻道再使用此指令！",
+        "success": "✅ 已準備建立頻道放置音樂面板！",
+        "used": "⚠️ 已在語音頻道中使用！"
+    },
+    "deleteBotChannel": {
+        "error": "刪除頻道時發生錯誤",
+        "success": "已刪除小精靈相關頻道，現在小精靈失業中"
+    },
+    "purge": {
+        "success": {
+            "user": [
+                "已成功刪除",
+                "條來自",
+                "的最新訊息"
+            ],
+            "nouser": [
+                "已成功刪除",
+                "條訊息"
+            ]
+        },
+        "error": "該頻道不支持批量刪除訊息，僅支持一般文字頻道。\n如有刪除需求請私訊管理員"
+    },
+    "role": {
+        "name": "小精靈觀察員",
+        "reason": "負責觀看小精靈",
+        "color": "#CB1B45",
+        "getRoleReact": "🎟️"
+    },
+    "channel": {
+        "categoryName": "小精靈生活圈",
+        "textHomeName": "小精靈窩",
+        "textNoticeName": "小精靈公告區",
+        "textYTNotice": "小精靈訂閱影片通知區"
+    }
+}

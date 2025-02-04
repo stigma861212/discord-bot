@@ -1,37 +1,38 @@
 import { ColorResolvable, EmbedBuilder } from "discord.js";
+import * as fs from 'fs';
+import * as path from 'path';
 
-/**Current version */
-const announcementVersion: string = "正式";
+const filePath = path.resolve(__dirname, '../text/data.json');
+const rawData = fs.readFileSync(filePath, 'utf-8');
+const data = JSON.parse(rawData);
+
+/**Open send announcement */
+export const needAnnouncement: boolean = data.needAnnouncement;
 
 /**
  * Update info content
  */
 export const announcementInfo: EmbedBuilder = new EmbedBuilder()
-    .setColor([255, 51, 51])
-    .setTitle("小精靈更新資訊")
-    .addFields(
-        { name: `當前版本`, value: `${announcementVersion} 版` },
-        { name: `1. **音樂指令防'呆'**`, value: `現在輸入錯誤後不會卡住` },
-        { name: `2. **專案套件更新**`, value: `更新套件` },
-    )
+    .setColor(data.announcementInfo.color)
+    .setTitle(data.announcementInfo.title)
+    .addFields(...data.announcementInfo.fields)
     .setTimestamp(Date.now())
 
 /**
  * Explain how to get roles
  */
 export const getRolesInfo: EmbedBuilder = new EmbedBuilder()
-    .setColor([255, 51, 51])
-    .setTitle("領取身分組")
-    .setDescription(`如需要訂閱影片通知請點擊下方🎟️來領取身分組`);
+    .setColor(data.getRolesInfo.color)
+    .setTitle(data.getRolesInfo.title)
+    .setDescription(data.getRolesInfo.description);
 
 /**
  * Music bot message panel content
  */
 export const musicPanel: EmbedBuilder = new EmbedBuilder()
-    .setColor([255, 51, 51])
-    .setTitle("音樂名稱")
-    .setDescription("test text");
-
+    .setColor(data.musicPanel.color)
+    .setTitle(data.musicPanel.title)
+    .setDescription(data.musicPanel.description);
 
 //#region subscribe reply
 /**
@@ -41,8 +42,9 @@ export const musicPanel: EmbedBuilder = new EmbedBuilder()
  * @returns message
  */
 export const subscribeSuccess = (id: string, url: string): string => {
-    return `訂閱 ${id} 成功 \n${url}`
+    return `${data.subscribe.success[0]} ${id} ${data.subscribe.success[1]}${url}`
 }
+
 /**
  * Already subscribe before message
  * @param id youtuber id
@@ -50,38 +52,38 @@ export const subscribeSuccess = (id: string, url: string): string => {
  * @returns message
  */
 export const subscribeRepeat = (id: string, url: string): string => {
-    return `已經訂閱過${id}了 \n${url}`
+    return `${data.subscribe.repeat[0]}${id}${data.subscribe.repeat[1]}${url}`
 }
 
-export const subscribeErrorUrlFormat: string = '網址格式有誤'
+export const subscribeErrorUrlFormat: string = data.subscribe.errorUrlFormat;
 //#endregion
 
 //#region unsubscribe reply
-export const unsubscribeNoticeError: string = '此功能僅可對小精靈傳送的訂閱訊息使用';
+export const unsubscribeNoticeError: string = data.unsubscribe.noticeError;
 
-export const unsubscribeCheckUrlFormat: string = '小精靈查詢不到此youtube影片資料，請確認影片格式是否正確';
+export const unsubscribeCheckUrlFormat: string = data.unsubscribe.checkUrlFormat;
 
-export const unsubscribeSuccess: string = '小精靈成功刪除訂閱資料';
+export const unsubscribeSuccess: string = data.unsubscribe.success;
 
-export const unsubscribeError: string = '小精靈找不到伺服器有訂閱此頻道資料或訂閱資料格式有誤';
+export const unsubscribeError: string = data.unsubscribe.error;
 //#endregion
 
 //#region addmusicbot reply
-export const addmusicbotChannel: string = '播放室';
+export const addmusicbotChannel: string = data.addmusicbot.channel;
 
-export const addmusicbotErrorURLFormat: string = '❌ 無法辨識此YT播放清單，網址是否有照格式?';
+export const addmusicbotErrorURLFormat: string = data.addmusicbot.errorURLFormat;
 
-export const addmusicbotUserExist: string = '⚠️ 請先加入語音頻道再使用此指令！';
+export const addmusicbotUserExist: string = data.addmusicbot.userExist;
 
-export const addmusicbotSuccess: string = '✅ 已準備建立頻道放置音樂面板！';
+export const addmusicbotSuccess: string = data.addmusicbot.success;
 
-export const addmusicbotUsed: string = '⚠️ 已在語音頻道中使用！';
+export const addmusicbotUsed: string = data.addmusicbot.used;
 //#endregion
 
 //#region deletebotchannel reply
-export const deleteBotChannelError: string = '刪除頻道時發生錯誤';
+export const deleteBotChannelError: string = data.deleteBotChannel.error;
 
-export const deleteBotChannelSuccess: string = '已刪除小精靈相關頻道，現在小精靈失業中';
+export const deleteBotChannelSuccess: string = data.deleteBotChannel.success;
 //#endregion
 
 //#region purge reply
@@ -93,27 +95,27 @@ export const deleteBotChannelSuccess: string = '已刪除小精靈相關頻道�
  */
 export const purgeSuccess = (amount: number, user?: string): string => {
     if (user) {
-        return `已成功刪除 ${amount} 條來自 ${user} 的最新訊息`;
+        return `${data.purge.success.user[0]} ${amount} ${data.purge.success.user[1]} ${user} ${data.purge.success.user[2]}`;
     }
     else {
-        return `已成功刪除 ${amount} 條訊息`;
+        return `${data.purge.success.nouser[0]} ${amount} ${data.purge.success.nouser[1]}`;
     }
 }
 
-export const purgeError: string = '該頻道不支持批量刪除訊息，僅支持一般文字頻道。\n如有刪除需求請私訊管理員'
+export const purgeError: string = data.purge.error
 //#endregion
 
 //#region role
-export const roleName: string = '小精靈觀察員';
-export const roleReason: string = '負責觀看小精靈';
-export const roleColor: ColorResolvable = '#CB1B45';
-export const getRoleReact: string = '🎟️';
+export const roleName: string = data.role.name;
+export const roleReason: string = data.role.reason;
+export const roleColor: ColorResolvable = data.role.color;
+export const getRoleReact: string = data.role.getRoleReact;
 
 //#endregion
 
 //#region channel
-export const categoryName: string = '小精靈生活圈';
-export const textHomeName: string = '小精靈窩';
-export const textNoticeName: string = '小精靈公告區';
-export const textYTNotice: string = '小精靈訂閱影片通知區';
+export const categoryName: string = data.channel.categoryName;
+export const textHomeName: string = data.channel.textHomeName;
+export const textNoticeName: string = data.channel.textNoticeName;
+export const textYTNotice: string = data.channel.textYTNotice;
 //#endregion

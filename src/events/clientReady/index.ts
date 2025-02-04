@@ -1,11 +1,9 @@
 import { CategoryChannel, ChannelType, Client, Events, TextChannel } from "discord.js";
 import { EventMoudle } from "../../type";
 import { Database, GuildFields, YoutuberSubscribeFields } from "../../database";
-import { announcementInfo } from "../../announcement";
+import { announcementInfo, needAnnouncement } from "../../announcement";
 import { getLatestNewVideo } from "../../youTubeDataAPIv3";
 
-/**是否重啟時發送公告 */
-const needAnnouncement: boolean = false;
 /**Notice time，0~60 */
 const minutes = 0;
 
@@ -61,6 +59,7 @@ const cleanMusicServe = async (client: Client<boolean>) => {
             if (guild.id == element.server_id) {
                 const category = guild.channels.cache.get(element.category_id) as CategoryChannel;
                 const idList = [element.textHome_id, element.textNotice_id, element.textYTNotice_id];
+                if (category == undefined) return;
                 category.children.cache.forEach(channel => {
                     if (!idList.includes(channel.id)) {
                         guild.channels.cache.get(channel.id)?.delete();
