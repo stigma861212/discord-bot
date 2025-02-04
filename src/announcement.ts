@@ -15,6 +15,7 @@ export const needAnnouncement: boolean = data.needAnnouncement;
 export const announcementInfo: EmbedBuilder = new EmbedBuilder()
     .setColor(data.announcementInfo.color)
     .setTitle(data.announcementInfo.title)
+    .addFields({ name: data.announcementInfo.currentVersion, value: `${data.announcementInfo.version} 版` })
     .addFields(...data.announcementInfo.fields)
     .setTimestamp(Date.now())
 
