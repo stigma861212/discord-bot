@@ -3,7 +3,6 @@ import { AudioPlayer, AudioPlayerStatus, VoiceConnection, createAudioPlayer, cre
 import { createSlashCommand } from "../../command";
 import { SlashCommand, CommandOption, OptionDataType, CommandOptionType } from "../../type";
 import ytpl from "ytpl";
-import ytdl from "@distube/ytdl-core";
 import { addmusicbotChannel, addmusicbotErrorURLFormat, addmusicbotSuccess, addmusicbotUsed, addmusicbotUserExist, musicPanel } from "../../announcement";
 import { music_previousButton, music_playButton, music_pauseButton, music_nextButton, music_exitButton, music_randomButton, music_urlButton } from "../../button";
 import { EventEmitter } from 'events';
@@ -11,6 +10,11 @@ import sharp from "sharp";
 import axios from "axios";
 import { createChannel } from "../../channelSetting";
 import { Database, GuildFields } from "../../database";
+import youtubedl from 'youtube-dl-exec';
+
+interface AudioResourceMetadata {
+    guildId: string;
+}
 
 /**Check event in use */
 let eventRegistered = false;
@@ -27,7 +31,7 @@ const initCommandInfo: Readonly<SlashCommand> = {
     descriptionLocalizations: {
         'zh-TW': '新增音樂機器人至你的語音頻道',
     }
-}
+};
 
 /**Init Command option group info in order */
 const initOptionInfoGroup: Readonly<Array<CommandOption>> = [
@@ -51,11 +55,11 @@ function getOptionsName(): Array<string> {
     initOptionInfoGroup.forEach(optionInfo => {
         optionsName.push(optionInfo.name);
     });
-    return optionsName
+    return optionsName;
 }
 
 /**Create command */
-export const command = createSlashCommand(initCommandInfo.name, initCommandInfo.description, initOptionInfoGroup)
+export const command = createSlashCommand(initCommandInfo.name, initCommandInfo.description, initOptionInfoGroup);
 
 if (initCommandInfo.nameLocalizations) {
     command.setNameLocalizations(initCommandInfo.nameLocalizations);
@@ -90,8 +94,7 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
             ephemeral: true,
         });
         return;
-    }
-    else {
+    } else {
         const botMember = data.guild!.members.me!;
 
         if (botMember.voice.channel) {
@@ -166,50 +169,95 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
     const player = createAudioPlayer();
     connection.subscribe(player);
 
-    const musicBotData = new MusicBotData(playlist, musicChannel, panel, connection, player);
+    const musicBotData = new MusicBotData(playlist, musicChannel, panel, connection, player, data.guildId as string);
     activeTrackGuilds.set(data.guildId as string, musicBotData);
 
     updatePanel(musicBotData);
     playNext(data.guildId as string, musicBotData);
 
-
     /**
      * To play next track with index number
-     * @param index order number of the current track
      */
     async function playNext(id: string, target: MusicBotData) {
         if (target.currentTrackIndex < target.playlist.items.length) {
-            const url = target.playlist.items[target.currentTrackIndex].url;
-            const stream = ytdl(url, {
-                filter: 'audioonly' as const,
-                quality: 'lowestaudio',
-                highWaterMark: 1 << 25,
-            })
+            const url = target.playlist.items[target.currentTrackIndex].url.split('&')[0];
 
             try {
-                const resource = createAudioResource(stream, {
+                if (target.player.state.status === AudioPlayerStatus.Playing || target.player.state.status === AudioPlayerStatus.Paused) {
+                    target.player.stop();
+                    await new Promise(resolve => target.player.once(AudioPlayerStatus.Idle, resolve));
+                }
+
+                if (target.stream) {
+                    target.stream.removeAllListeners();
+                    target.stream.kill('SIGTERM');
+                    target.stream = null;
+                }
+
+                const stream = youtubedl.exec(url, {
+                    format: 'bestaudio',
+                    output: '-',
+                    noPlaylist: true,
+                    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/123.0.0 Safari/537.36',
+                });
+
+                if (!stream.stdout) {
+                    throw new Error('Failed to fetch audio stream.');
+                }
+
+                target.stream = stream;
+
+                const resource = createAudioResource<AudioResourceMetadata>(stream.stdout, {
                     inlineVolume: true,
+                    metadata: { guildId: id },
                 });
                 resource.volume?.setVolume(0.1);
 
-                // Wait for the stream to preload some sec(2500)
-                await new Promise(async resolve => {
-                    setTimeout(resolve, 2500);
-                });
-                target.player.unpause();
+                await new Promise(resolve => setTimeout(resolve, 1000));
+
                 target.player.play(resource);
-            } catch (error) {
-                console.log("Skip this wrong track", error);
-                target.currentTrackIndex++;
-                playNext(id, target);
-                updatePanel(target);
+                console.log(`Playing track: ${target.playlist.items[target.currentTrackIndex].title}`);
+
+                stream.stderr!.on('data', (data) => {
+                    console.error('youtube-dl error:', data.toString());
+                });
+
+                stream.on('error', (error) => {
+                    console.error('Stream error:', error);
+                    if (error.message?.includes('SIGTERM') || error.message?.includes('Broken pipe')) {
+                        return;
+                    }
+                    target.currentTrackIndex++;
+                    playNext(id, target);
+                });
+
+            } catch (error: unknown) {
+                if (error instanceof Error) {
+                    if (error.message.includes('SIGTERM') || error.message.includes('Broken pipe')) {
+                        console.log('Stream terminated or pipe broken intentionally, proceeding...');
+                    } else {
+                        console.error('Error processing track:', error);
+                        target.currentTrackIndex++;
+                        await playNext(id, target);
+                    }
+                } else {
+                    console.error('Unknown error:', error);
+                    target.currentTrackIndex++;
+                    await playNext(id, target);
+                }
             }
-        }
-        else {
+        } else {
+            console.log('End of playlist, cleaning up resources...');
+            if (target.stream) {
+                target.stream.removeAllListeners();
+                target.stream.kill('SIGTERM');
+                target.stream = null;
+            }
+            target.player.stop();
             target.connection.destroy();
             await target.panel.delete();
             await target.musicChannel.delete();
-            if (activeTrackGuilds.size == 1) {
+            if (activeTrackGuilds.size === 1) {
                 playerEventEmitter.removeAllListeners();
                 eventRegistered = false;
             }
@@ -225,52 +273,28 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
             const bestThumbnail = target.playlist.items[target.currentTrackIndex].bestThumbnail.url as string;
             const color = await getDominantColorFromUrl(bestThumbnail);
 
-            /**
-             * Get DominantColor frome URL
-             * @param imageUrl url
-             * @returns rgb color data
-             */
             async function getDominantColorFromUrl(imageUrl: string): Promise<[number, number, number]> {
                 try {
-                    // 使用 axios 下載圖片
                     const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
-
-                    // 確保圖片下載成功
                     if (response.status !== 200) {
                         throw new Error(`Failed to fetch image: ${response.statusText}`);
                     }
-
-                    // 直接使用 axios 返回的 Buffer 來處理圖片
                     const buffer = Buffer.from(response.data);
-
-                    // 使用 sharp 處理圖片並獲取像素數據
                     const imageBuffer = await sharp(buffer)
-                        .resize(100, 100)  // 可選，調整圖片大小以提高處理速度
+                        .resize(100, 100)
                         .raw()
                         .toBuffer();
-
-                    // 取得圖片的像素數據
                     const pixels = new Uint8Array(imageBuffer);
-
-                    // 顏色統計
                     const colorMap: { [key: string]: number } = {};
-                    for (let i = 0; i < pixels.length; i += 3) {  // 假設圖片是 RGB 格式
+                    for (let i = 0; i < pixels.length; i += 3) {
                         const r = pixels[i];
                         const g = pixels[i + 1];
                         const b = pixels[i + 2];
-
                         const colorKey = `${r},${g},${b}`;
-                        if (colorMap[colorKey]) {
-                            colorMap[colorKey]++;
-                        } else {
-                            colorMap[colorKey] = 1;
-                        }
+                        colorMap[colorKey] = (colorMap[colorKey] || 0) + 1;
                     }
-
-                    // 找出出現最多的顏色
                     let dominantColor = '';
                     let maxCount = 0;
-
                     for (const colorKey in colorMap) {
                         if (colorMap[colorKey] > maxCount) {
                             maxCount = colorMap[colorKey];
@@ -278,17 +302,14 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
                         }
                     }
                     return dominantColor.split(",").map(Number) as [number, number, number];
-
                 } catch (error) {
                     console.error('Error processing the image:', error);
                     throw error;
                 }
             }
 
-            /**新音樂資料 */
             embeds = new EmbedBuilder()
                 .setTitle(trackName)
-                // .setThumbnail(bestThumbnail)
                 .addFields(
                     { name: " ", value: " ", inline: true },
                     { name: " ", value: " ", inline: true },
@@ -296,22 +317,32 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
                 )
                 .setFooter({ text: "Author: " + authorName })
                 .setColor(color)
-                .setImage(bestThumbnail)
+                .setImage(bestThumbnail);
 
-            // 修改當前的音樂面板
             await target.panel.edit({
                 embeds: [embeds],
                 components: [buttonRowPlayState, buttonRowLink]
-            })
+            });
         }
     }
 
-    // 設置當前音樂播放結束後的回調
-    player.on('stateChange', (oldState, newState) => {
-        if (newState.status === AudioPlayerStatus.Idle) {
-            musicBotData.currentTrackIndex++;
-            playNext(data.guildId as string, musicBotData);
-            updatePanel(musicBotData);
+    player.on('stateChange', (oldState: any, newState: any) => {
+        if (newState.status === AudioPlayerStatus.Idle && oldState.status !== AudioPlayerStatus.Idle) {
+            const guildId = (oldState.resource.metadata as AudioResourceMetadata)?.guildId;
+            const targetData = activeTrackGuilds.get(guildId);
+            if (targetData && !targetData.isManualSwitch) {
+                if (targetData.stream) {
+                    targetData.stream.removeAllListeners();
+                    targetData.stream.kill('SIGTERM');
+                    targetData.stream = null;
+                }
+                targetData.currentTrackIndex++;
+                playNext(guildId, targetData);
+                updatePanel(targetData);
+            }
+            if (targetData) {
+                targetData.isManualSwitch = false;
+            }
         }
     });
 
@@ -321,24 +352,18 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
             const mes = await interaction.deferReply({ ephemeral: true });
             if (targetData.player.state.status === AudioPlayerStatus.Paused) {
                 targetData.player.unpause();
+                await targetData.panel.edit({ embeds: [embeds], components: [buttonRowPlayState, buttonRowLink] });
             }
-            await targetData.panel.edit({
-                embeds: [embeds],
-                components: [buttonRowPlayState, buttonRowLink]
-            })
             setTimeout(() => { mes.delete() }, 500);
-        })
+        });
 
         playerEventEmitter.on('music_pause', async (interaction: ButtonInteraction<CacheType>) => {
             const targetData = activeTrackGuilds.get(interaction.guildId as string) as MusicBotData;
             const mes = await interaction.deferReply({ ephemeral: true });
             if (targetData.player.state.status === AudioPlayerStatus.Playing) {
                 targetData.player.pause();
+                await targetData.panel.edit({ embeds: [embeds], components: [buttonRowStopState, buttonRowLink] });
             }
-            await targetData.panel.edit({
-                embeds: [embeds],
-                components: [buttonRowStopState, buttonRowLink]
-            })
             setTimeout(() => { mes.delete() }, 500);
         });
 
@@ -346,10 +371,17 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
             const targetData = activeTrackGuilds.get(interaction.guildId as string) as MusicBotData;
             const mes = await interaction.deferReply({ ephemeral: true });
             if (targetData.currentTrackIndex + 1 < targetData.playlist.items.length) {
-                targetData.player.pause();
+                targetData.isManualSwitch = true;
+                targetData.player.stop();
+                await new Promise(resolve => targetData.player.once(AudioPlayerStatus.Idle, resolve));
+                if (targetData.stream) {
+                    targetData.stream.removeAllListeners();
+                    targetData.stream.kill('SIGTERM');
+                    targetData.stream = null;
+                }
                 targetData.currentTrackIndex++;
-                playNext(interaction.guildId as string, targetData);
-                updatePanel(targetData);
+                await playNext(interaction.guildId as string, targetData);
+                await updatePanel(targetData);
             }
             setTimeout(() => { mes.delete() }, 500);
         });
@@ -358,10 +390,17 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
             const targetData = activeTrackGuilds.get(interaction.guildId as string) as MusicBotData;
             const mes = await interaction.deferReply({ ephemeral: true });
             if (targetData.currentTrackIndex > 0) {
-                targetData.player.pause();
+                targetData.isManualSwitch = true;
+                targetData.player.stop();
+                await new Promise(resolve => targetData.player.once(AudioPlayerStatus.Idle, resolve));
+                if (targetData.stream) {
+                    targetData.stream.removeAllListeners();
+                    targetData.stream.kill('SIGTERM');
+                    targetData.stream = null;
+                }
                 targetData.currentTrackIndex--;
-                playNext(interaction.guildId as string, targetData);
-                updatePanel(targetData);
+                await playNext(interaction.guildId as string, targetData);
+                await updatePanel(targetData);
             }
             setTimeout(() => { mes.delete() }, 500);
         });
@@ -369,46 +408,60 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
         playerEventEmitter.on('music_random', async (interaction: ButtonInteraction<CacheType>) => {
             const targetData = activeTrackGuilds.get(interaction.guildId as string) as MusicBotData;
             const mes = await interaction.deferReply({ ephemeral: true });
-            targetData.player.pause();
+            targetData.isManualSwitch = true;
+            targetData.player.stop();
+            await new Promise(resolve => targetData.player.once(AudioPlayerStatus.Idle, resolve));
+            if (targetData.stream) {
+                targetData.stream.removeAllListeners();
+                targetData.stream.kill('SIGTERM');
+                targetData.stream = null;
+            }
             targetData.currentTrackIndex = 0;
             targetData.playlist.items.sort(() => Math.random() - 0.5);
-            playNext(interaction.guildId as string, targetData);
-            updatePanel(targetData);
+            await playNext(interaction.guildId as string, targetData);
+            await updatePanel(targetData);
             setTimeout(() => { mes.delete() }, 500);
         });
 
         playerEventEmitter.on('music_exit', async (interaction: ButtonInteraction<CacheType>) => {
             const targetData = activeTrackGuilds.get(interaction.guildId as string) as MusicBotData;
             const mes = await interaction.deferReply({ ephemeral: true });
-            targetData.player.pause();
-
-            if (activeTrackGuilds.size == 0) {
-                playerEventEmitter.removeAllListeners();
-                eventRegistered = false;
+            if (targetData.stream) {
+                targetData.stream.removeAllListeners();
+                targetData.stream.kill('SIGTERM');
+                targetData.stream = null;
             }
+            targetData.player.stop();
             targetData.connection.destroy();
-            mes.delete();
             await targetData.panel.delete();
             await targetData.musicChannel.delete();
             activeTrackGuilds.delete(interaction.guildId as string);
+            if (activeTrackGuilds.size === 0) {
+                playerEventEmitter.removeAllListeners();
+                eventRegistered = false;
+            }
         });
+
         eventRegistered = true;
     }
 };
 
-/**Get all `setName` string in the command in order  */
+/**Get all `setName` string in the command in order */
 export const actionOption = getOptionsName();
 
 export const playerEventEmitter = new EventEmitter();
 
 class MusicBotData {
-    constructor(playlist: ytpl.Result, musicChannel: TextChannel, panel: Message<true>, connection: VoiceConnection, player: AudioPlayer) {
+    constructor(playlist: ytpl.Result, musicChannel: TextChannel, panel: Message<true>, connection: VoiceConnection, player: AudioPlayer, guildId: string) {
         this.playlist = playlist;
         this.musicChannel = musicChannel;
         this.panel = panel;
         this.connection = connection;
         this.player = player;
         this.currentTrackIndex = 0;
+        this.stream = null;
+        this.guildId = guildId;
+        this.isManualSwitch = false;
     }
     public playlist: ytpl.Result;
     public musicChannel: TextChannel;
@@ -416,4 +469,7 @@ class MusicBotData {
     public connection: VoiceConnection;
     public player: AudioPlayer;
     public currentTrackIndex: number;
+    public stream: any | null;
+    public guildId: string;
+    public isManualSwitch: boolean;
 }
