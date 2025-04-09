@@ -82,6 +82,16 @@ This project structure allows easy expansion of bot functionalities while mainta
 
 ## Usage
 
+Node version
+```
+18.18.0
+```
+
+Python version
+```
+3.12.3
+```
+
 Run the following command to start the bot:
 
 ```bash
