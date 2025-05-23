@@ -2,7 +2,7 @@ import { ActionRowBuilder, ButtonBuilder, ButtonInteraction, CacheType, ChannelT
 import { AudioPlayer, AudioPlayerStatus, VoiceConnection, createAudioPlayer, createAudioResource, joinVoiceChannel } from "@discordjs/voice";
 import { createSlashCommand } from "../../command";
 import { SlashCommand, CommandOption, OptionDataType, CommandOptionType } from "../../type";
-import ytpl from "ytpl";
+import ytpl from "@distube/ytpl";
 import { addmusicbotChannel, addmusicbotErrorURLFormat, addmusicbotSuccess, addmusicbotUsed, addmusicbotUserExist, musicPanel } from "../../announcement";
 import { music_previousButton, music_playButton, music_pauseButton, music_nextButton, music_exitButton, music_randomButton, music_urlButton } from "../../button";
 import { EventEmitter } from 'events';
@@ -70,7 +70,7 @@ if (initCommandInfo.descriptionLocalizations) {
 
 /**Command action */
 export const action = async (data: ChatInputCommandInteraction, options: Array<OptionDataType>) => {
-    let playlist: ytpl.Result;
+    let playlist: ytpl.result;
     let playlistURL: string = options[0] as string;
 
     try {
@@ -269,8 +269,8 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
         if (target.currentTrackIndex < target.playlist.items.length) {
             const url = target.playlist.items[target.currentTrackIndex].url;
             const trackName = target.playlist.items[target.currentTrackIndex].title;
-            const authorName = target.playlist.items[target.currentTrackIndex].author.name;
-            const bestThumbnail = target.playlist.items[target.currentTrackIndex].bestThumbnail.url as string;
+            const authorName = target.playlist.items[target.currentTrackIndex].author?.name;
+            const bestThumbnail = target.playlist.items[target.currentTrackIndex].thumbnail as string;
             const color = await getDominantColorFromUrl(bestThumbnail);
 
             async function getDominantColorFromUrl(imageUrl: string): Promise<[number, number, number]> {
@@ -452,7 +452,7 @@ export const actionOption = getOptionsName();
 export const playerEventEmitter = new EventEmitter();
 
 class MusicBotData {
-    constructor(playlist: ytpl.Result, musicChannel: TextChannel, panel: Message<true>, connection: VoiceConnection, player: AudioPlayer, guildId: string) {
+    constructor(playlist: ytpl.result, musicChannel: TextChannel, panel: Message<true>, connection: VoiceConnection, player: AudioPlayer, guildId: string) {
         this.playlist = playlist;
         this.musicChannel = musicChannel;
         this.panel = panel;
@@ -463,7 +463,7 @@ class MusicBotData {
         this.guildId = guildId;
         this.isManualSwitch = false;
     }
-    public playlist: ytpl.Result;
+    public playlist: ytpl.result;
     public musicChannel: TextChannel;
     public panel: Message<true>;
     public connection: VoiceConnection;
