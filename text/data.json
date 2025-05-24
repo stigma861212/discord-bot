@@ -12,7 +12,7 @@
         "fields": [
             {
                 "name": "1. **專案套件更換**",
-                "value": "原本套件蛋雕，改用python接node處理stream"
+                "value": "原本套件蛋雕，改用@distube/ytpl"
             }
         ]
     },
