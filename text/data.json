@@ -11,8 +11,8 @@
         ],
         "fields": [
             {
-                "name": "1. **專案套件更換**",
-                "value": "原本套件蛋雕，改用python接node處理stream"
+                "name": "1. **新增指令**",
+                "value": "新增 更改伺服器名稱 指令 /changeServerName"
             }
         ]
     },
