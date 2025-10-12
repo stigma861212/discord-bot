@@ -66,7 +66,7 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
     console.log("options", options);
     data.reply({
         content: `test: ${options[0]}, ${options[1]}, 這是測試用指令阿阿阿阿阿!禁止!禁止!!!`,
-        ephemeral: true,
+        flags: 64,
     });
 };
 
