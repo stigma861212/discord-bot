@@ -80,7 +80,7 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
         console.error('Failed to fetch playlist', error);
         await data.reply({
             content: addmusicbotErrorURLFormat,
-            ephemeral: true,
+            flags: 64,
         });
         return;
     }
@@ -91,7 +91,7 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
     if (!voiceChannel) {
         await data.reply({
             content: addmusicbotUserExist,
-            ephemeral: true,
+            flags: 64,
         });
         return;
     } else {
@@ -100,14 +100,14 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
         if (botMember.voice.channel) {
             await data.reply({
                 content: addmusicbotUsed,
-                ephemeral: true,
+                flags: 64,
             });
             return;
         }
 
         await data.reply({
             content: addmusicbotSuccess,
-            ephemeral: true,
+            flags: 64,
         });
     }
 
