@@ -57,6 +57,70 @@ export const getUploaderId = async (videoId: string) => {
 }
 
 /**
+ * Get YouTube playlist items
+ * @param playlistId YouTube playlist ID
+ * @returns playlist items with video information
+ */
+export const getPlaylistItems = async (playlistId: string) => {
+    try {
+        let allItems: any[] = [];
+        let nextPageToken: string | undefined = undefined;
+
+        // YouTube API 每次最多返回 50 個項目，需要分頁獲取
+        do {
+            const response: any = await axios.get('https://www.googleapis.com/youtube/v3/playlistItems', {
+                params: {
+                    part: 'snippet,contentDetails',
+                    playlistId: playlistId,
+                    maxResults: 50,
+                    pageToken: nextPageToken,
+                    key: process.env.YOUTUBE_V3_API
+                }
+            });
+
+            if (response.data.items && response.data.items.length > 0) {
+                allItems = allItems.concat(response.data.items);
+            }
+
+            nextPageToken = response.data.nextPageToken;
+        } while (nextPageToken);
+
+        console.log(`成功獲取播放清單，共 ${allItems.length} 個影片`);
+        return allItems;
+    } catch (error) {
+        console.error('錯誤: 無法查詢播放清單', error);
+        throw error;
+    }
+}
+
+/**
+ * Get playlist basic information
+ * @param playlistId YouTube playlist ID
+ * @returns playlist information
+ */
+export const getPlaylistInfo = async (playlistId: string) => {
+    try {
+        const response = await axios.get('https://www.googleapis.com/youtube/v3/playlists', {
+            params: {
+                part: 'snippet,contentDetails',
+                id: playlistId,
+                key: process.env.YOUTUBE_V3_API
+            }
+        });
+
+        if (response.data.items && response.data.items.length > 0) {
+            return response.data.items[0];
+        } else {
+            console.log('找不到對應的播放清單。');
+            return undefined;
+        }
+    } catch (error) {
+        console.error('錯誤: 無法查詢播放清單資訊', error);
+        throw error;
+    }
+}
+
+/**
  * Get youtube channel newest video
  * @param id yt channel id 
  * @returns yt video url list

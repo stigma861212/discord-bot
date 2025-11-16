@@ -2,7 +2,6 @@ import { ActionRowBuilder, ButtonBuilder, ButtonInteraction, CacheType, ChannelT
 import { AudioPlayer, AudioPlayerStatus, VoiceConnection, createAudioPlayer, createAudioResource, joinVoiceChannel } from "@discordjs/voice";
 import { createSlashCommand } from "../../command";
 import { SlashCommand, CommandOption, OptionDataType, CommandOptionType } from "../../type";
-import ytpl from "@distube/ytpl";
 import { addmusicbotChannel, addmusicbotErrorURLFormat, addmusicbotSuccess, addmusicbotUsed, addmusicbotUserExist, musicPanel } from "../../announcement";
 import { music_previousButton, music_playButton, music_pauseButton, music_nextButton, music_exitButton, music_randomButton, music_urlButton } from "../../button";
 import { EventEmitter } from 'events';
@@ -10,9 +9,25 @@ import sharp from "sharp";
 import axios from "axios";
 import { createChannel } from "../../channelSetting";
 import youtubedl from 'youtube-dl-exec';
+import { getPlaylistItems, getPlaylistInfo } from "../../youTubeDataAPIv3";
 
 interface AudioResourceMetadata {
     guildId: string;
+}
+
+interface PlaylistItem {
+    url: string;
+    title: string;
+    author?: {
+        name: string;
+    };
+    thumbnail: string;
+}
+
+interface Playlist {
+    items: PlaylistItem[];
+    title: string;
+    url: string;
 }
 
 /**Check event in use */
@@ -69,16 +84,58 @@ if (initCommandInfo.descriptionLocalizations) {
 
 /**Command action */
 export const action = async (data: ChatInputCommandInteraction, options: Array<OptionDataType>) => {
-    let playlist: ytpl.result;
+    let playlist: Playlist;
     let playlistURL: string = options[0] as string;
 
     try {
         const url = new URL(playlistURL);
-        playlist = await ytpl(url.href);
+
+        // 驗證是否為 YouTube 播放清單 URL
+        if (!url.hostname.includes('youtube.com') && !url.hostname.includes('youtu.be')) {
+            throw new Error('Invalid YouTube URL');
+        }
+
+        // 檢查是否包含播放清單 ID
+        const playlistId = url.searchParams.get('list');
+        if (!playlistId) {
+            throw new Error('No playlist ID found in URL');
+        }
+
+        // 使用 YouTube Data API 獲取播放清單資訊
+        const [playlistInfo, playlistItems] = await Promise.all([
+            getPlaylistInfo(playlistId),
+            getPlaylistItems(playlistId)
+        ]);
+
+        if (!playlistInfo || !playlistItems || playlistItems.length === 0) {
+            throw new Error('Playlist is empty or not found');
+        }
+
+        // 轉換為我們的 Playlist 格式
+        playlist = {
+            title: playlistInfo.snippet.title,
+            url: playlistURL,
+            items: playlistItems
+                .filter(item => item.snippet.resourceId.videoId) // 過濾掉已刪除的影片
+                .map(item => ({
+                    url: `https://www.youtube.com/watch?v=${item.snippet.resourceId.videoId}`,
+                    title: item.snippet.title,
+                    author: {
+                        name: item.snippet.videoOwnerChannelTitle || item.snippet.channelTitle
+                    },
+                    thumbnail: item.snippet.thumbnails?.maxres?.url ||
+                        item.snippet.thumbnails?.high?.url ||
+                        item.snippet.thumbnails?.medium?.url ||
+                        item.snippet.thumbnails?.default?.url || ''
+                }))
+        };
+
+        console.log(`成功載入播放清單: ${playlist.title}，共 ${playlist.items.length} 首歌曲`);
+
     } catch (error) {
         console.error('Failed to fetch playlist', error);
         await data.reply({
-            content: addmusicbotErrorURLFormat,
+            content: addmusicbotErrorURLFormat + '\n\n請確認：\n1. 網址格式正確\n2. 播放清單為公開或未列出\n3. 播放清單包含影片\n4. YouTube Data API 金鑰已設定 (YOUTUBE_V3_API)',
             flags: 64,
         });
         return;
@@ -445,7 +502,7 @@ export const actionOption = getOptionsName();
 export const playerEventEmitter = new EventEmitter();
 
 class MusicBotData {
-    constructor(playlist: ytpl.result, musicChannel: TextChannel, panel: Message<true>, connection: VoiceConnection, player: AudioPlayer, guildId: string) {
+    constructor(playlist: Playlist, musicChannel: TextChannel, panel: Message<true>, connection: VoiceConnection, player: AudioPlayer, guildId: string) {
         this.playlist = playlist;
         this.musicChannel = musicChannel;
         this.panel = panel;
@@ -456,7 +513,7 @@ class MusicBotData {
         this.guildId = guildId;
         this.isManualSwitch = false;
     }
-    public playlist: ytpl.result;
+    public playlist: Playlist;
     public musicChannel: TextChannel;
     public panel: Message<true>;
     public connection: VoiceConnection;
