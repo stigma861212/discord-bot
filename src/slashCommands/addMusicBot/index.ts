@@ -9,7 +9,6 @@ import { EventEmitter } from 'events';
 import sharp from "sharp";
 import axios from "axios";
 import { createChannel } from "../../channelSetting";
-import { Database, GuildFields } from "../../database";
 import youtubedl from 'youtube-dl-exec';
 
 interface AudioResourceMetadata {
@@ -134,11 +133,6 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
             music_urlButton
         );
 
-    const category: Array<{ category_id: string }> = new Database().useGuildTable()
-        .select(GuildFields.CategoryId)
-        .where(GuildFields.ServerId, data.guildId)
-        .execute();
-
     const musicChannel = await createChannel(
         data.guild!,
         addmusicbotChannel,
@@ -146,8 +140,7 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
         {
             ViewChannel: true,
             SendMessages: false,
-        },
-        category[0].category_id
+        }
     ) as TextChannel;
 
     /**音樂面板訊息傳送 */
