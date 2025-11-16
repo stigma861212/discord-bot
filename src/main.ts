@@ -14,5 +14,3 @@ const mainStart = async () => {
 };
 
 mainStart();
-
-// TODO: 固定時間檢查機器人當前所在所有的伺服器來對DB做一次資料清理

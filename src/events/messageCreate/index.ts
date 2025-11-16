@@ -8,6 +8,4 @@ export const event: EventMoudle = {
 
 export const action = (message: OmitPartialGroupDMChannel<Message<boolean> | PartialMessage>) => {
     if (!message.author || message.author.bot) return
-    // console.log(`${message.author.globalName} send message: ${message.content}`);
-    // message.channel.send(`${message.author.globalName} send message: ${message.content}`);
 }
