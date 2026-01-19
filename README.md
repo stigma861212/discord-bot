@@ -82,14 +82,14 @@ This project structure allows easy expansion of bot functionalities while mainta
 
 ## Usage
 
-Node version
+Node version (required)
 ```
-18.18.0
+>= 20 (tested with 20.20.0)
 ```
 
-Python version
+Python
 ```
-3.12.3
+Not required
 ```
 
 Run the following command to start the bot:

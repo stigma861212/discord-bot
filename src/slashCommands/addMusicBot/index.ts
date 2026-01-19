@@ -1,5 +1,5 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonInteraction, CacheType, ChannelType, ChatInputCommandInteraction, EmbedBuilder, GuildMember, Message, TextChannel } from "discord.js";
-import { AudioPlayer, AudioPlayerStatus, VoiceConnection, createAudioPlayer, createAudioResource, joinVoiceChannel } from "@discordjs/voice";
+import { AudioPlayer, AudioPlayerStatus, StreamType, VoiceConnection, createAudioPlayer, createAudioResource, joinVoiceChannel } from "@discordjs/voice";
 import { createSlashCommand } from "../../command";
 import { SlashCommand, CommandOption, OptionDataType, CommandOptionType } from "../../type";
 import { addmusicbotChannel, addmusicbotErrorURLFormat, addmusicbotSuccess, addmusicbotUsed, addmusicbotUserExist, musicPanel } from "../../announcement";
@@ -8,7 +8,8 @@ import { EventEmitter } from 'events';
 import sharp from "sharp";
 import axios from "axios";
 import { createChannel } from "../../channelSetting";
-import youtubedl from 'youtube-dl-exec';
+import { spawn } from "child_process";
+import { getYtDlpPath } from "../../ytDlp";
 import { getPlaylistItems, getPlaylistInfo } from "../../youTubeDataAPIv3";
 
 interface AudioResourceMetadata {
@@ -28,6 +29,45 @@ interface Playlist {
     items: PlaylistItem[];
     title: string;
     url: string;
+}
+
+const STREAM_SWITCH_DELAY_MS = 250;
+const TRACK_SKIP_DELAY_MS = 150;
+const YT_DLP_EARLY_EXIT_MS = 600;
+
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+const buildButtonRow = (...buttons: ButtonBuilder[]) =>
+    new ActionRowBuilder<ButtonBuilder>().addComponents(...buttons);
+
+async function getDominantColorFromUrl(imageUrl: string): Promise<[number, number, number]> {
+    const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
+    if (response.status !== 200) {
+        throw new Error(`Failed to fetch image: ${response.statusText}`);
+    }
+    const buffer = Buffer.from(response.data);
+    const imageBuffer = await sharp(buffer)
+        .resize(100, 100)
+        .raw()
+        .toBuffer();
+    const pixels = new Uint8Array(imageBuffer);
+    const colorMap: { [key: string]: number } = {};
+    for (let i = 0; i < pixels.length; i += 3) {
+        const r = pixels[i];
+        const g = pixels[i + 1];
+        const b = pixels[i + 2];
+        const colorKey = `${r},${g},${b}`;
+        colorMap[colorKey] = (colorMap[colorKey] || 0) + 1;
+    }
+    let dominantColor = '';
+    let maxCount = 0;
+    for (const colorKey in colorMap) {
+        if (colorMap[colorKey] > maxCount) {
+            maxCount = colorMap[colorKey];
+            dominantColor = colorKey;
+        }
+    }
+    return dominantColor.split(",").map(Number) as [number, number, number];
 }
 
 /**Check event in use */
@@ -167,28 +207,23 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
         });
     }
 
-    const buttonRowPlayState = new ActionRowBuilder<ButtonBuilder>()
-        .addComponents(
-            music_previousButton,
-            music_pauseButton,
-            music_nextButton,
-            music_exitButton,
-            music_randomButton
-        );
+    const buttonRowPlayState = buildButtonRow(
+        music_previousButton,
+        music_pauseButton,
+        music_nextButton,
+        music_exitButton,
+        music_randomButton
+    );
 
-    const buttonRowStopState = new ActionRowBuilder<ButtonBuilder>()
-        .addComponents(
-            music_previousButton,
-            music_playButton,
-            music_nextButton,
-            music_exitButton,
-            music_randomButton
-        );
+    const buttonRowStopState = buildButtonRow(
+        music_previousButton,
+        music_playButton,
+        music_nextButton,
+        music_exitButton,
+        music_randomButton
+    );
 
-    const buttonRowLink = new ActionRowBuilder<ButtonBuilder>()
-        .addComponents(
-            music_urlButton
-        );
+    const buttonRowLink = buildButtonRow(music_urlButton);
 
     const musicChannel = await createChannel(
         data.guild!,
@@ -222,15 +257,36 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
     const musicBotData = new MusicBotData(playlist, musicChannel, panel, connection, player, data.guildId as string);
     activeTrackGuilds.set(data.guildId as string, musicBotData);
 
-    updatePanel(musicBotData);
-    playNext(data.guildId as string, musicBotData);
+    // 先嘗試開始播放（可能會跳過不可播放影片），再更新面板
+    await playNext(data.guildId as string, musicBotData);
+    await updatePanel(musicBotData);
 
     /**
      * To play next track with index number
      */
+    function stopCurrentStream(target: MusicBotData) {
+        if (!target.stream) return;
+        const proc: any = target.stream;
+        proc.stdout?.removeAllListeners?.();
+        proc.stderr?.removeAllListeners?.();
+        proc.stdout?.destroy?.();
+        proc.kill?.('SIGTERM');
+        proc.removeAllListeners?.();
+        target.stream = null;
+    }
+
     async function playNext(id: string, target: MusicBotData) {
-        if (target.currentTrackIndex < target.playlist.items.length) {
-            const url = target.playlist.items[target.currentTrackIndex].url.split('&')[0];
+        // 用迴圈處理：遇到不可播放影片就跳過，避免遞迴一直爆
+        while (target.currentTrackIndex < target.playlist.items.length) {
+            const item = target.playlist.items[target.currentTrackIndex];
+            const trackUrl = item?.url?.split('&')[0];
+
+            // 理論上不該發生，但遇到髒資料就直接跳過
+            if (!trackUrl) {
+                console.warn(`播放失敗，切下一首（網址為空）: index=${target.currentTrackIndex}`);
+                target.currentTrackIndex++;
+                continue;
+            }
 
             try {
                 if (target.player.state.status === AudioPlayerStatus.Playing || target.player.state.status === AudioPlayerStatus.Paused) {
@@ -238,125 +294,110 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
                     await new Promise(resolve => target.player.once(AudioPlayerStatus.Idle, resolve));
                 }
 
-                if (target.stream) {
-                    target.stream.removeAllListeners();
-                    target.stream.kill('SIGTERM');
-                    target.stream = null;
-                }
+                stopCurrentStream(target);
 
-                const stream = youtubedl.exec(url, {
-                    format: 'bestaudio',
-                    output: '-',
-                    noPlaylist: true,
-                    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/123.0.0 Safari/537.36',
+                // yt-dlp standalone exe：不需要 Python（Windows 下載 yt-dlp.exe）
+                const ytdlpPath = await getYtDlpPath();
+
+                const proc = spawn(
+                    ytdlpPath,
+                    [
+                        "--no-playlist",
+                        "--no-warnings",
+                        "--quiet",
+                        // Newer YouTube extraction may require a JS runtime to avoid missing URLs (SABR).
+                        "--js-runtimes",
+                        "node",
+                        // Force Opus-in-WebM so @discordjs/voice can demux without ffmpeg
+                        "-f",
+                        "bestaudio[acodec=opus][ext=webm]",
+                        "-o",
+                        "-",
+                        trackUrl,
+                    ],
+                    {
+                        windowsHide: true,
+                        stdio: ["ignore", "pipe", "pipe"],
+                    }
+                );
+
+                // quick fail-fast: if yt-dlp exits immediately with non-zero, treat as unplayable
+                await new Promise<void>((resolve, reject) => {
+                    const timer = setTimeout(() => resolve(), YT_DLP_EARLY_EXIT_MS);
+                    proc.once("exit", (code) => {
+                        clearTimeout(timer);
+                        if (code && code !== 0) reject(new Error(`yt-dlp exited with code ${code}`));
+                        else resolve();
+                    });
+                    proc.once("error", (err) => {
+                        clearTimeout(timer);
+                        reject(err);
+                    });
                 });
 
-                if (!stream.stdout) {
-                    throw new Error('Failed to fetch audio stream.');
-                }
+                proc.stderr.on("data", (buf) => {
+                    const msg = buf.toString().trim();
+                    if (msg) console.error("yt-dlp:", msg);
+                });
 
-                target.stream = stream;
+                target.stream = proc as any;
 
-                const resource = createAudioResource<AudioResourceMetadata>(stream.stdout, {
+                const resource = createAudioResource<AudioResourceMetadata>(proc.stdout, {
+                    inputType: StreamType.WebmOpus,
                     inlineVolume: true,
                     metadata: { guildId: id },
                 });
                 resource.volume?.setVolume(0.1);
 
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                // 小延遲避免過快切歌造成斷管
+                await delay(STREAM_SWITCH_DELAY_MS);
 
                 target.player.play(resource);
-                console.log(`Playing track: ${target.playlist.items[target.currentTrackIndex].title}`);
+                console.log(`Playing track: ${item.title}`);
 
-                stream.stderr!.on('data', (data) => {
-                    console.error('youtube-dl error:', data.toString());
+                proc.stdout.on("error", () => {
+                    // 訊息改為「切下一首」的提示，但實際換歌仍交給 Idle 流程處理
+                    console.warn(
+                        `播放中斷，準備切下一首: index=${target.currentTrackIndex}, title=${item?.title}`
+                    );
                 });
 
-                stream.on('error', (error) => {
-                    console.error('Stream error:', error);
-                    if (error.message?.includes('SIGTERM') || error.message?.includes('Broken pipe')) {
-                        return;
+                proc.on("close", (code) => {
+                    if (code && code !== 0) {
+                        console.error(`yt-dlp closed with code ${code}`);
                     }
-                    target.currentTrackIndex++;
-                    playNext(id, target);
                 });
 
+                return; // 成功開始播放就結束
             } catch (error: unknown) {
-                if (error instanceof Error) {
-                    if (error.message.includes('SIGTERM') || error.message.includes('Broken pipe')) {
-                        console.log('Stream terminated or pipe broken intentionally, proceeding...');
-                    } else {
-                        console.error('Error processing track:', error);
-                        target.currentTrackIndex++;
-                        await playNext(id, target);
-                    }
-                } else {
-                    console.error('Unknown error:', error);
-                    target.currentTrackIndex++;
-                    await playNext(id, target);
-                }
+                // 常見：刪除/私人/限制影片、或 yt-dlp 無法取得 opus/webm 來源 → 跳過
+                console.error(`播放失敗，切下一首: index=${target.currentTrackIndex}, title=${item?.title}`, error);
+                target.currentTrackIndex++;
+                // 避免連續失敗刷太快
+                await delay(TRACK_SKIP_DELAY_MS);
             }
-        } else {
-            console.log('End of playlist, cleaning up resources...');
-            if (target.stream) {
-                target.stream.removeAllListeners();
-                target.stream.kill('SIGTERM');
-                target.stream = null;
-            }
-            target.player.stop();
-            target.connection.destroy();
-            await target.panel.delete();
-            await target.musicChannel.delete();
-            if (activeTrackGuilds.size === 1) {
-                playerEventEmitter.removeAllListeners();
-                eventRegistered = false;
-            }
-            activeTrackGuilds.delete(id);
         }
+
+        // 播放清單結束：清理資源
+        console.log('End of playlist, cleaning up resources...');
+        stopCurrentStream(target);
+        target.player.stop();
+        target.connection.destroy();
+        await target.panel.delete();
+        await target.musicChannel.delete();
+        if (activeTrackGuilds.size === 1) {
+            playerEventEmitter.removeAllListeners();
+            eventRegistered = false;
+        }
+        activeTrackGuilds.delete(id);
     }
 
     async function updatePanel(target: MusicBotData) {
         if (target.currentTrackIndex < target.playlist.items.length) {
-            const url = target.playlist.items[target.currentTrackIndex].url;
             const trackName = target.playlist.items[target.currentTrackIndex].title;
             const authorName = target.playlist.items[target.currentTrackIndex].author?.name;
             const bestThumbnail = target.playlist.items[target.currentTrackIndex].thumbnail as string;
             const color = await getDominantColorFromUrl(bestThumbnail);
-
-            async function getDominantColorFromUrl(imageUrl: string): Promise<[number, number, number]> {
-                try {
-                    const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
-                    if (response.status !== 200) {
-                        throw new Error(`Failed to fetch image: ${response.statusText}`);
-                    }
-                    const buffer = Buffer.from(response.data);
-                    const imageBuffer = await sharp(buffer)
-                        .resize(100, 100)
-                        .raw()
-                        .toBuffer();
-                    const pixels = new Uint8Array(imageBuffer);
-                    const colorMap: { [key: string]: number } = {};
-                    for (let i = 0; i < pixels.length; i += 3) {
-                        const r = pixels[i];
-                        const g = pixels[i + 1];
-                        const b = pixels[i + 2];
-                        const colorKey = `${r},${g},${b}`;
-                        colorMap[colorKey] = (colorMap[colorKey] || 0) + 1;
-                    }
-                    let dominantColor = '';
-                    let maxCount = 0;
-                    for (const colorKey in colorMap) {
-                        if (colorMap[colorKey] > maxCount) {
-                            maxCount = colorMap[colorKey];
-                            dominantColor = colorKey;
-                        }
-                    }
-                    return dominantColor.split(",").map(Number) as [number, number, number];
-                } catch (error) {
-                    console.error('Error processing the image:', error);
-                    throw error;
-                }
-            }
 
             embeds = new EmbedBuilder()
                 .setTitle(trackName)
@@ -376,19 +417,15 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
         }
     }
 
-    player.on('stateChange', (oldState: any, newState: any) => {
+    player.on('stateChange', async (oldState: any, newState: any) => {
         if (newState.status === AudioPlayerStatus.Idle && oldState.status !== AudioPlayerStatus.Idle) {
             const guildId = (oldState.resource.metadata as AudioResourceMetadata)?.guildId;
             const targetData = activeTrackGuilds.get(guildId);
             if (targetData && !targetData.isManualSwitch) {
-                if (targetData.stream) {
-                    targetData.stream.removeAllListeners();
-                    targetData.stream.kill('SIGTERM');
-                    targetData.stream = null;
-                }
+                stopCurrentStream(targetData);
                 targetData.currentTrackIndex++;
-                playNext(guildId, targetData);
-                updatePanel(targetData);
+                await playNext(guildId, targetData);
+                await updatePanel(targetData);
             }
             if (targetData) {
                 targetData.isManualSwitch = false;
@@ -399,7 +436,7 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
     if (!eventRegistered) {
         playerEventEmitter.on("music_play", async (interaction: ButtonInteraction<CacheType>) => {
             const targetData = activeTrackGuilds.get(interaction.guildId as string) as MusicBotData;
-            const mes = await interaction.deferReply({ ephemeral: true });
+            const mes = await interaction.deferReply({ flags: 64 });
             if (targetData.player.state.status === AudioPlayerStatus.Paused) {
                 targetData.player.unpause();
                 await targetData.panel.edit({ embeds: [embeds], components: [buttonRowPlayState, buttonRowLink] });
@@ -409,7 +446,7 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
 
         playerEventEmitter.on('music_pause', async (interaction: ButtonInteraction<CacheType>) => {
             const targetData = activeTrackGuilds.get(interaction.guildId as string) as MusicBotData;
-            const mes = await interaction.deferReply({ ephemeral: true });
+            const mes = await interaction.deferReply({ flags: 64 });
             if (targetData.player.state.status === AudioPlayerStatus.Playing) {
                 targetData.player.pause();
                 await targetData.panel.edit({ embeds: [embeds], components: [buttonRowStopState, buttonRowLink] });
@@ -419,16 +456,12 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
 
         playerEventEmitter.on('music_next', async (interaction: ButtonInteraction<CacheType>) => {
             const targetData = activeTrackGuilds.get(interaction.guildId as string) as MusicBotData;
-            const mes = await interaction.deferReply({ ephemeral: true });
+            const mes = await interaction.deferReply({ flags: 64 });
             if (targetData.currentTrackIndex + 1 < targetData.playlist.items.length) {
                 targetData.isManualSwitch = true;
                 targetData.player.stop();
                 await new Promise(resolve => targetData.player.once(AudioPlayerStatus.Idle, resolve));
-                if (targetData.stream) {
-                    targetData.stream.removeAllListeners();
-                    targetData.stream.kill('SIGTERM');
-                    targetData.stream = null;
-                }
+                stopCurrentStream(targetData);
                 targetData.currentTrackIndex++;
                 await playNext(interaction.guildId as string, targetData);
                 await updatePanel(targetData);
@@ -438,16 +471,12 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
 
         playerEventEmitter.on('music_previous', async (interaction: ButtonInteraction<CacheType>) => {
             const targetData = activeTrackGuilds.get(interaction.guildId as string) as MusicBotData;
-            const mes = await interaction.deferReply({ ephemeral: true });
+            const mes = await interaction.deferReply({ flags: 64 });
             if (targetData.currentTrackIndex > 0) {
                 targetData.isManualSwitch = true;
                 targetData.player.stop();
                 await new Promise(resolve => targetData.player.once(AudioPlayerStatus.Idle, resolve));
-                if (targetData.stream) {
-                    targetData.stream.removeAllListeners();
-                    targetData.stream.kill('SIGTERM');
-                    targetData.stream = null;
-                }
+                stopCurrentStream(targetData);
                 targetData.currentTrackIndex--;
                 await playNext(interaction.guildId as string, targetData);
                 await updatePanel(targetData);
@@ -457,15 +486,11 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
 
         playerEventEmitter.on('music_random', async (interaction: ButtonInteraction<CacheType>) => {
             const targetData = activeTrackGuilds.get(interaction.guildId as string) as MusicBotData;
-            const mes = await interaction.deferReply({ ephemeral: true });
+            const mes = await interaction.deferReply({ flags: 64 });
             targetData.isManualSwitch = true;
             targetData.player.stop();
             await new Promise(resolve => targetData.player.once(AudioPlayerStatus.Idle, resolve));
-            if (targetData.stream) {
-                targetData.stream.removeAllListeners();
-                targetData.stream.kill('SIGTERM');
-                targetData.stream = null;
-            }
+            stopCurrentStream(targetData);
             targetData.currentTrackIndex = 0;
             targetData.playlist.items.sort(() => Math.random() - 0.5);
             await playNext(interaction.guildId as string, targetData);
@@ -475,12 +500,8 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
 
         playerEventEmitter.on('music_exit', async (interaction: ButtonInteraction<CacheType>) => {
             const targetData = activeTrackGuilds.get(interaction.guildId as string) as MusicBotData;
-            const mes = await interaction.deferReply({ ephemeral: true });
-            if (targetData.stream) {
-                targetData.stream.removeAllListeners();
-                targetData.stream.kill('SIGTERM');
-                targetData.stream = null;
-            }
+            const mes = await interaction.deferReply({ flags: 64 });
+            stopCurrentStream(targetData);
             targetData.player.stop();
             targetData.connection.destroy();
             await targetData.panel.delete();

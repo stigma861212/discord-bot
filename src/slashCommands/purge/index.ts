@@ -1,4 +1,4 @@
-import { ChatInputCommandInteraction, DMChannel, MediaChannel, TextChannel, User, VoiceChannel } from "discord.js";
+import { ChatInputCommandInteraction, TextChannel, User } from "discord.js";
 import { createSlashCommand } from "../../command";
 import { SlashCommand, CommandOption, CommandOptionType, OptionDataType } from "../../type";
 import { purgeError, purgeSuccess } from "../../announcement";
@@ -68,7 +68,7 @@ if (initCommandInfo.descriptionLocalizations) {
 export const action = async (data: ChatInputCommandInteraction, options: Array<OptionDataType>) => {
     const channel = data.channel;
     const [deleteAmount, user] = options as [number, User];
-    await data.deferReply({ ephemeral: true });
+    await data.deferReply({ flags: 64 });
     if (channel instanceof TextChannel) {
         if (user != undefined) {
             const userId = user.id;
@@ -95,7 +95,7 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
         }
     }
     else {
-        await data.followUp({ content: purgeError, ephemeral: true });
+        await data.followUp({ content: purgeError, flags: 64 });
         setTimeout(async () => {
             await data.deleteReply();
         }, 10000);
