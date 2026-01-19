@@ -10,7 +10,7 @@ import axios from "axios";
 import { createChannel } from "../../channelSetting";
 import { spawn } from "child_process";
 import { getYtDlpPath } from "../../ytDlp";
-import { getPlaylistItems, getPlaylistInfo } from "../../youTubeDataAPIv3";
+import { getPlaylistItems, getPlaylistInfo, getVideoInfo } from "../../youTubeDataAPIv3";
 
 interface AudioResourceMetadata {
     guildId: string;
@@ -91,14 +91,14 @@ const initCommandInfo: Readonly<SlashCommand> = {
 const initOptionInfoGroup: Readonly<Array<CommandOption>> = [
     {
         name: 'url',
-        description: 'Youtube playlist url.',
+        description: 'Youtube playlist or single video url.',
         required: true,
         type: CommandOptionType.STRING,
         nameLocalizations: {
             'zh-TW': 'url',
         },
         descriptionLocalizations: {
-            'zh-TW': 'Youtube播放清單網址',
+            'zh-TW': 'Youtube播放清單或單首影片網址',
         }
     }
 ];
@@ -135,42 +135,85 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
             throw new Error('Invalid YouTube URL');
         }
 
-        // 檢查是否包含播放清單 ID
-        const playlistId = url.searchParams.get('list');
-        if (!playlistId) {
-            throw new Error('No playlist ID found in URL');
-        }
-
-        // 使用 YouTube Data API 獲取播放清單資訊
-        const [playlistInfo, playlistItems] = await Promise.all([
-            getPlaylistInfo(playlistId),
-            getPlaylistItems(playlistId)
-        ]);
-
-        if (!playlistInfo || !playlistItems || playlistItems.length === 0) {
-            throw new Error('Playlist is empty or not found');
-        }
-
-        // 轉換為我們的 Playlist 格式
-        playlist = {
-            title: playlistInfo.snippet.title,
-            url: playlistURL,
-            items: playlistItems
-                .filter(item => item.snippet.resourceId.videoId) // 過濾掉已刪除的影片
-                .map(item => ({
-                    url: `https://www.youtube.com/watch?v=${item.snippet.resourceId.videoId}`,
-                    title: item.snippet.title,
-                    author: {
-                        name: item.snippet.videoOwnerChannelTitle || item.snippet.channelTitle
-                    },
-                    thumbnail: item.snippet.thumbnails?.maxres?.url ||
-                        item.snippet.thumbnails?.high?.url ||
-                        item.snippet.thumbnails?.medium?.url ||
-                        item.snippet.thumbnails?.default?.url || ''
-                }))
+        const getVideoId = (targetUrl: URL) => {
+            if (targetUrl.hostname.includes('youtu.be')) {
+                const id = targetUrl.pathname.replace('/', '').trim();
+                return id || undefined;
+            }
+            const videoId = targetUrl.searchParams.get('v');
+            return videoId || undefined;
         };
 
-        console.log(`成功載入播放清單: ${playlist.title}，共 ${playlist.items.length} 首歌曲`);
+        // 檢查是否包含播放清單 ID
+        const playlistId = url.searchParams.get('list');
+        const videoId = getVideoId(url);
+
+        if (!playlistId && !videoId) {
+            throw new Error('No playlist or video ID found in URL');
+        }
+
+        if (playlistId) {
+            // 使用 YouTube Data API 獲取播放清單資訊
+            const [playlistInfo, playlistItems] = await Promise.all([
+                getPlaylistInfo(playlistId),
+                getPlaylistItems(playlistId)
+            ]);
+
+            if (!playlistInfo || !playlistItems || playlistItems.length === 0) {
+                throw new Error('Playlist is empty or not found');
+            }
+
+            // 轉換為我們的 Playlist 格式
+            playlist = {
+                title: playlistInfo.snippet.title,
+                url: playlistURL,
+                items: playlistItems
+                    .filter(item => item.snippet.resourceId.videoId) // 過濾掉已刪除的影片
+                    .map(item => ({
+                        url: `https://www.youtube.com/watch?v=${item.snippet.resourceId.videoId}`,
+                        title: item.snippet.title,
+                        author: {
+                            name: item.snippet.videoOwnerChannelTitle || item.snippet.channelTitle
+                        },
+                        thumbnail: item.snippet.thumbnails?.maxres?.url ||
+                            item.snippet.thumbnails?.high?.url ||
+                            item.snippet.thumbnails?.medium?.url ||
+                            item.snippet.thumbnails?.default?.url || ''
+                    }))
+            };
+
+            console.log(`成功載入播放清單: ${playlist.title}，共 ${playlist.items.length} 首歌曲`);
+        } else {
+            const videoInfo = await getVideoInfo(videoId as string);
+            if (!videoInfo) {
+                throw new Error('Video not found');
+            }
+
+            const bestThumbnail = videoInfo.snippet.thumbnails?.maxres?.url ||
+                videoInfo.snippet.thumbnails?.high?.url ||
+                videoInfo.snippet.thumbnails?.medium?.url ||
+                videoInfo.snippet.thumbnails?.default?.url || '';
+
+            const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+            playlistURL = videoUrl;
+
+            playlist = {
+                title: videoInfo.snippet.title || '單首歌曲',
+                url: videoUrl,
+                items: [
+                    {
+                        url: videoUrl,
+                        title: videoInfo.snippet.title || '單首歌曲',
+                        author: {
+                            name: videoInfo.snippet.channelTitle
+                        },
+                        thumbnail: bestThumbnail
+                    }
+                ]
+            };
+
+            console.log(`成功載入單首影片: ${playlist.title}`);
+        }
 
     } catch (error) {
         console.error('Failed to fetch playlist', error);

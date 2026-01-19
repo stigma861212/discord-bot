@@ -121,6 +121,33 @@ export const getPlaylistInfo = async (playlistId: string) => {
 }
 
 /**
+ * Get youtube video basic information
+ * @param videoId YouTube video ID
+ * @returns video information
+ */
+export const getVideoInfo = async (videoId: string) => {
+    try {
+        const response = await axios.get('https://www.googleapis.com/youtube/v3/videos', {
+            params: {
+                part: 'snippet,contentDetails',
+                id: videoId,
+                key: process.env.YOUTUBE_V3_API
+            }
+        });
+
+        if (response.data.items && response.data.items.length > 0) {
+            return response.data.items[0];
+        } else {
+            console.log('找不到對應的影片。');
+            return undefined;
+        }
+    } catch (error) {
+        console.error('錯誤: 無法查詢影片資訊', error);
+        throw error;
+    }
+}
+
+/**
  * Get youtube channel newest video
  * @param id yt channel id 
  * @returns yt video url list
