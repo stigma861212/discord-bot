@@ -2,7 +2,10 @@ import { EmbedBuilder } from "discord.js";
 import * as fs from 'fs';
 import * as path from 'path';
 
-const filePath = path.resolve(__dirname, '../text/data.json');
+const baseDir = (process as { pkg?: unknown }).pkg
+    ? path.dirname(process.execPath)
+    : path.resolve(__dirname, '..');
+const filePath = path.join(baseDir, 'text', 'data.json');
 const rawData = fs.readFileSync(filePath, 'utf-8');
 const data = JSON.parse(rawData);
 

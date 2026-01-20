@@ -4,6 +4,7 @@ import { OptionDataType } from "./type";
 /**Store client and actions data */
 export default class ClientDataManager {
     private static instance: ClientDataManager;
+    private static readonly GLOBAL_KEY = "__discordBotClientDataManager__";
     /**Discord Client */
     private client: Client<boolean>;
     /**Store all actions */
@@ -27,9 +28,21 @@ export default class ClientDataManager {
     }
 
     public static getInstance(): ClientDataManager {
-        if (!ClientDataManager.instance) {
-            ClientDataManager.instance = new ClientDataManager();
+        if (ClientDataManager.instance) {
+            return ClientDataManager.instance;
         }
+
+        const globalRef = globalThis as typeof globalThis & {
+            [ClientDataManager.GLOBAL_KEY]?: ClientDataManager;
+        };
+
+        if (globalRef[ClientDataManager.GLOBAL_KEY]) {
+            ClientDataManager.instance = globalRef[ClientDataManager.GLOBAL_KEY] as ClientDataManager;
+            return ClientDataManager.instance;
+        }
+
+        ClientDataManager.instance = new ClientDataManager();
+        globalRef[ClientDataManager.GLOBAL_KEY] = ClientDataManager.instance;
         return ClientDataManager.instance;
     }
     /**Get client */

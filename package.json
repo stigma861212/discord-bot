@@ -1,9 +1,14 @@
 {
   "name": "discord-bot",
   "version": "1.0.0",
-  "main": "main.js",
+  "main": "dist/main.js",
+  "bin": "dist/main.js",
   "scripts": {
-    "start": "ts-node-dev src/main.ts"
+    "dev": "ts-node-dev src/main.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/main.js",
+    "package:assets": "node scripts/copy-assets.js",
+    "package": "npm run build && pkg . && npm run package:assets"
   },
   "keywords": [],
   "repository": "https://github.com/stigma861212/discord-bot",
@@ -28,7 +33,21 @@
   "devDependencies": {
     "@types/node": "^22.7.0",
     "@types/sharp": "^0.32.0",
+    "pkg": "^5.8.1",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.6.2"
+  },
+  "pkg": {
+    "targets": [
+      "node18-win-x64"
+    ],
+    "outputPath": "pkg",
+    "scripts": [
+      "dist/**/*.js"
+    ],
+    "assets": [
+      "dist/**/*",
+      "node_modules/ffmpeg-static/**"
+    ]
   }
 }

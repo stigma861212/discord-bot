@@ -24,7 +24,11 @@ const registerCommands = async (commands: Array<SlashCommandBuilder | ContextMen
 /**Load events files to register action events*/
 export const loadEvents = async (client: Client) => {
     /**Events directory path */
-    const eventsDir = path.join(__dirname, '../src/events');
+    const fileExtension = path.extname(__filename);
+    const baseDir = (process as { pkg?: unknown }).pkg
+        ? path.join(path.dirname(process.execPath), 'dist')
+        : __dirname;
+    const eventsDir = path.join(baseDir, 'events');
     try {
         /**To read all files and folders under the events directory */
         const items = await fs.readdir(eventsDir, { withFileTypes: true });
@@ -34,13 +38,13 @@ export const loadEvents = async (client: Client) => {
         const indexFiles: string[] = [];
         for (const folder of folders) {
             /**`index.ts` path */
-            const indexPath = path.join(eventsDir, folder.name, 'index.ts');
+            const indexPath = path.join(eventsDir, folder.name, `index${fileExtension}`);
             await fs.access(indexPath)
                 .then(() => {
                     indexFiles.push(indexPath);
                 })
                 .catch(() => {
-                    console.warn(`index.ts not found in folder: ${folder.name}`);
+                    console.warn(`Index file not found: ${indexPath}`);
                 });
         }
         for (const file of indexFiles) {
@@ -63,7 +67,11 @@ export const loadSlashCommands = async (): Promise<SlashCommandBuilder[]> => {
     const commands: SlashCommandBuilder[] = [];
     const actions: Collection<string, (data: ChatInputCommandInteraction | MessageContextMenuCommandInteraction) => Promise<void>> = new Collection();
     /**Commands directory path */
-    const commandsDir = path.join(__dirname, '../src/slashCommands');
+    const fileExtension = path.extname(__filename);
+    const baseDir = (process as { pkg?: unknown }).pkg
+        ? path.join(path.dirname(process.execPath), 'dist')
+        : __dirname;
+    const commandsDir = path.join(baseDir, 'slashCommands');
     try {
         /**To read all files and folders under the commands directory */
         const items = await fs.readdir(commandsDir, { withFileTypes: true });
@@ -73,13 +81,13 @@ export const loadSlashCommands = async (): Promise<SlashCommandBuilder[]> => {
         const indexFiles: string[] = [];
         for (const folder of folders) {
             /**`index.ts` path */
-            const indexPath = path.join(commandsDir, folder.name, 'index.ts');
+            const indexPath = path.join(commandsDir, folder.name, `index${fileExtension}`);
             await fs.access(indexPath)
                 .then(() => {
                     indexFiles.push(indexPath);
                 })
                 .catch(() => {
-                    console.warn(`index.ts not found in folder: ${folder.name}`);
+                    console.warn(`Index file not found: ${indexPath}`);
                 });
         }
         for (const file of indexFiles) {
@@ -99,7 +107,11 @@ export const loadContextMenuCommands = async (): Promise<ContextMenuCommandBuild
     const commands: ContextMenuCommandBuilder[] = [];
     const actions: Collection<string, (data: ChatInputCommandInteraction | MessageContextMenuCommandInteraction) => Promise<void>> = new Collection();
     /**Commands directory path */
-    const commandsDir = path.join(__dirname, '../src/contextMenuCommands');
+    const fileExtension = path.extname(__filename);
+    const baseDir = (process as { pkg?: unknown }).pkg
+        ? path.join(path.dirname(process.execPath), 'dist')
+        : __dirname;
+    const commandsDir = path.join(baseDir, 'contextMenuCommands');
     try {
         /**To read all files and folders under the commands directory */
         const items = await fs.readdir(commandsDir, { withFileTypes: true });
@@ -109,13 +121,13 @@ export const loadContextMenuCommands = async (): Promise<ContextMenuCommandBuild
         const indexFiles: string[] = [];
         for (const folder of folders) {
             /**`index.ts` path */
-            const indexPath = path.join(commandsDir, folder.name, 'index.ts');
+            const indexPath = path.join(commandsDir, folder.name, `index${fileExtension}`);
             await fs.access(indexPath)
                 .then(() => {
                     indexFiles.push(indexPath);
                 })
                 .catch(() => {
-                    console.warn(`index.ts not found in folder: ${folder.name}`);
+                    console.warn(`Index file not found: ${indexPath}`);
                 });
         }
         for (const file of indexFiles) {
