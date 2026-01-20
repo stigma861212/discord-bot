@@ -40,6 +40,24 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 const buildButtonRow = (...buttons: ButtonBuilder[]) =>
     new ActionRowBuilder<ButtonBuilder>().addComponents(...buttons);
 
+function isValidHttpUrl(url: string): boolean {
+    if (!url) return false;
+    try {
+        const parsed = new URL(url);
+        return parsed.protocol === "http:" || parsed.protocol === "https:";
+    } catch {
+        return false;
+    }
+}
+
+function shouldSkipItem(item: PlaylistItem): boolean {
+    const title = (item?.title || "").toLowerCase();
+    if (title.includes("deleted video") || title.includes("private video")) {
+        return true;
+    }
+    return !isValidHttpUrl(item?.url || "");
+}
+
 async function getDominantColorFromUrl(imageUrl: string): Promise<[number, number, number]> {
     const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
     if (response.status !== 200) {
@@ -324,9 +342,9 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
             const item = target.playlist.items[target.currentTrackIndex];
             const trackUrl = item?.url?.split('&')[0];
 
-            // 理論上不該發生，但遇到髒資料就直接跳過
-            if (!trackUrl) {
-                console.warn(`播放失敗，切下一首（網址為空）: index=${target.currentTrackIndex}`);
+            // 遇到已刪除/私人影片或髒資料就直接跳過
+            if (!trackUrl || shouldSkipItem(item)) {
+                console.warn(`播放失敗，切下一首（影片不可用）: index=${target.currentTrackIndex}, title=${item?.title}`);
                 target.currentTrackIndex++;
                 continue;
             }
