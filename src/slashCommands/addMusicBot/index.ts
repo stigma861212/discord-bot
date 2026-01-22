@@ -234,7 +234,7 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
         }
 
     } catch (error) {
-        console.error('Failed to fetch playlist', error);
+        console.error("Failed to fetch playlist", error);
         await data.reply({
             content: addmusicbotErrorURLFormat + '\n\n請確認：\n1. 網址格式正確\n2. 播放清單為公開或未列出\n3. 播放清單包含影片\n4. YouTube Data API 金鑰已設定 (YOUTUBE_V3_API)',
             flags: 64,
@@ -418,7 +418,7 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
                 await delay(STREAM_SWITCH_DELAY_MS);
 
                 target.player.play(resource);
-                console.log(`Playing track: ${item.title}`);
+                console.log(`Playing track: ${item.title}\n====================`);
 
                 proc.stdout.on("error", () => {
                     // 訊息改為「切下一首」的提示，但實際換歌仍交給 Idle 流程處理
@@ -436,7 +436,10 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
                 return; // 成功開始播放就結束
             } catch (error: unknown) {
                 // 常見：刪除/私人/限制影片、或 yt-dlp 無法取得 opus/webm 來源 → 跳過
-                console.error(`播放失敗，切下一首: index=${target.currentTrackIndex}, title=${item?.title}`, error);
+                console.error(
+                    `播放失敗，切下一首: index=${target.currentTrackIndex}, title=${item?.title}`,
+                    error
+                );
                 target.currentTrackIndex++;
                 // 避免連續失敗刷太快
                 await delay(TRACK_SKIP_DELAY_MS);
@@ -444,7 +447,7 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
         }
 
         // 播放清單結束：清理資源
-        console.log('End of playlist, cleaning up resources...');
+        console.log("End of playlist, cleaning up resources...");
         stopCurrentStream(target);
         target.player.stop();
         target.connection.destroy();
@@ -568,14 +571,21 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
         playerEventEmitter.on('music_random', async (interaction: ButtonInteraction<CacheType>) => {
             const targetData = activeTrackGuilds.get(interaction.guildId as string) as MusicBotData;
             const mes = await interaction.deferReply({ flags: 64 });
-            targetData.isManualSwitch = true;
-            targetData.player.stop();
-            await new Promise(resolve => targetData.player.once(AudioPlayerStatus.Idle, resolve));
-            stopCurrentStream(targetData);
-            targetData.currentTrackIndex = 0;
-            targetData.playlist.items.sort(() => Math.random() - 0.5);
-            await playNext(interaction.guildId as string, targetData);
-            await updatePanel(targetData);
+            const currentIndex = targetData.currentTrackIndex;
+            const items = targetData.playlist.items;
+
+            if (items.length > 1) {
+                // 保留目前播放的歌曲，重排整個清單後只隨機後續待播
+                const currentItem = items[currentIndex];
+                const remaining = items.filter((_, index) => index !== currentIndex);
+                remaining.sort(() => Math.random() - 0.5);
+                items.splice(0, items.length, currentItem, ...remaining);
+                targetData.currentTrackIndex = 0;
+                console.log(`已隨機後續待播清單: guild=${interaction.guildId}, remain=${remaining.length}`);
+            } else {
+                console.log(`隨機清單略過: guild=${interaction.guildId}, count=${items.length}`);
+            }
+
             setTimeout(() => { mes.delete() }, 500);
         });
 
