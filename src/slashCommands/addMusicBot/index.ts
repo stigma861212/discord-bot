@@ -342,6 +342,10 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
             const item = target.playlist.items[target.currentTrackIndex];
             const trackUrl = item?.url?.split('&')[0];
 
+            console.log(
+                `playNext: guild=${id}, index=${target.currentTrackIndex}/${target.playlist.items.length - 1}`
+            );
+
             // 遇到已刪除/私人影片或髒資料就直接跳過
             if (!trackUrl || shouldSkipItem(item)) {
                 console.warn(`播放失敗，切下一首（影片不可用）: index=${target.currentTrackIndex}, title=${item?.title}`);
@@ -478,10 +482,26 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
         }
     }
 
+    function resolveTargetData(guildId: string | undefined, playerRef: AudioPlayer) {
+        if (guildId) {
+            return activeTrackGuilds.get(guildId);
+        }
+        // Fallback: find by player instance when metadata is missing
+        for (const value of activeTrackGuilds.values()) {
+            if (value.player === playerRef) {
+                return value;
+            }
+        }
+        return undefined;
+    }
+
     player.on('stateChange', async (oldState: any, newState: any) => {
         if (newState.status === AudioPlayerStatus.Idle && oldState.status !== AudioPlayerStatus.Idle) {
             const guildId = (oldState.resource.metadata as AudioResourceMetadata)?.guildId;
-            const targetData = activeTrackGuilds.get(guildId);
+            const targetData = resolveTargetData(guildId, player);
+            console.log(
+                `player Idle: guild=${guildId || "unknown"}, resolved=${!!targetData}, manual=${targetData?.isManualSwitch ?? "n/a"}, index=${targetData?.currentTrackIndex ?? "n/a"}`
+            );
             if (targetData && !targetData.isManualSwitch) {
                 stopCurrentStream(targetData);
                 targetData.currentTrackIndex++;
