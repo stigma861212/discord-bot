@@ -317,6 +317,10 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
 
     const musicBotData = new MusicBotData(playlist, musicChannel, panel, connection, player, data.guildId as string);
     activeTrackGuilds.set(data.guildId as string, musicBotData);
+    connection.on("error", async (error) => {
+        console.error("VoiceConnection error:", error);
+        await cleanupAndDestroy(musicBotData, data.guildId as string, "voice connection error");
+    });
 
     // 先嘗試開始播放（可能會跳過不可播放影片），再更新面板
     await playNext(data.guildId as string, musicBotData);
@@ -334,6 +338,24 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
         proc.kill?.('SIGTERM');
         proc.removeAllListeners?.();
         target.stream = null;
+    }
+
+    async function cleanupAndDestroy(target: MusicBotData, guildId: string, reason: string) {
+        if (target.isCleaning) return;
+        target.isCleaning = true;
+        console.warn(`Cleaning up resources: ${reason}, guild=${guildId}`);
+        stopCurrentStream(target);
+        target.player.stop();
+        target.connection.destroy();
+        await Promise.allSettled([
+            target.panel.delete(),
+            target.musicChannel.delete(),
+        ]);
+        activeTrackGuilds.delete(guildId);
+        if (activeTrackGuilds.size === 0) {
+            playerEventEmitter.removeAllListeners();
+            eventRegistered = false;
+        }
     }
 
     async function playNext(id: string, target: MusicBotData) {
@@ -448,16 +470,7 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
 
         // 播放清單結束：清理資源
         console.log("End of playlist, cleaning up resources...");
-        stopCurrentStream(target);
-        target.player.stop();
-        target.connection.destroy();
-        await target.panel.delete();
-        await target.musicChannel.delete();
-        if (activeTrackGuilds.size === 1) {
-            playerEventEmitter.removeAllListeners();
-            eventRegistered = false;
-        }
-        activeTrackGuilds.delete(id);
+        await cleanupAndDestroy(target, id, "playlist ended");
     }
 
     async function updatePanel(target: MusicBotData) {
@@ -592,16 +605,8 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
         playerEventEmitter.on('music_exit', async (interaction: ButtonInteraction<CacheType>) => {
             const targetData = activeTrackGuilds.get(interaction.guildId as string) as MusicBotData;
             const mes = await interaction.deferReply({ flags: 64 });
-            stopCurrentStream(targetData);
-            targetData.player.stop();
-            targetData.connection.destroy();
-            await targetData.panel.delete();
-            await targetData.musicChannel.delete();
-            activeTrackGuilds.delete(interaction.guildId as string);
-            if (activeTrackGuilds.size === 0) {
-                playerEventEmitter.removeAllListeners();
-                eventRegistered = false;
-            }
+            await cleanupAndDestroy(targetData, interaction.guildId as string, "manual exit");
+            setTimeout(() => { mes.delete() }, 500);
         });
 
         eventRegistered = true;
@@ -624,6 +629,7 @@ class MusicBotData {
         this.stream = null;
         this.guildId = guildId;
         this.isManualSwitch = false;
+        this.isCleaning = false;
     }
     public playlist: Playlist;
     public musicChannel: TextChannel;
@@ -634,4 +640,5 @@ class MusicBotData {
     public stream: any | null;
     public guildId: string;
     public isManualSwitch: boolean;
+    public isCleaning: boolean;
 }
