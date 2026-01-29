@@ -392,12 +392,21 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
                         "--no-playlist",
                         "--no-warnings",
                         "--quiet",
+                        // Some regions/accounts get 403 unless we specify client and headers.
+                        "--user-agent",
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+                        "--referer",
+                        "https://www.youtube.com/",
+                        "--extractor-args",
+                        "youtube:player_client=android,web",
                         // Newer YouTube extraction may require a JS runtime to avoid missing URLs (SABR).
                         "--js-runtimes",
                         "node",
                         // Force Opus-in-WebM so @discordjs/voice can demux without ffmpeg
                         "-f",
-                        "bestaudio[acodec=opus][ext=webm]",
+                        // Prefer audio-only; allow fallback to "best" when no audio-only formats exist.
+                        // This avoids "Requested format is not available" on some videos.
+                        "bestaudio/best",
                         "-o",
                         "-",
                         trackUrl,
@@ -430,7 +439,8 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
                 target.stream = proc as any;
 
                 const resource = createAudioResource<AudioResourceMetadata>(proc.stdout, {
-                    inputType: StreamType.WebmOpus,
+                    // Let prism/ffmpeg handle non-opus containers.
+                    inputType: StreamType.Arbitrary,
                     inlineVolume: true,
                     metadata: { guildId: id },
                 });
