@@ -9,6 +9,7 @@ import sharp from "sharp";
 import axios from "axios";
 import { createChannel } from "../../channelSetting";
 import { spawn } from "child_process";
+import { PassThrough } from "stream";
 import { getYtDlpPath } from "../../ytDlp";
 import { getPlaylistItems, getPlaylistInfo, getVideoInfo } from "../../youTubeDataAPIv3";
 
@@ -29,6 +30,14 @@ interface Playlist {
     items: PlaylistItem[];
     title: string;
     url: string;
+}
+
+interface PreloadedTrack {
+    index: number;
+    item: PlaylistItem;
+    proc: any;
+    stream: PassThrough;
+    resource: any;
 }
 
 const STREAM_SWITCH_DELAY_MS = 250;
@@ -330,14 +339,108 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
      * To play next track with index number
      */
     function stopCurrentStream(target: MusicBotData) {
-        if (!target.stream) return;
-        const proc: any = target.stream;
+        if (!target.streamProc) return;
+        const proc: any = target.streamProc;
         proc.stdout?.removeAllListeners?.();
         proc.stderr?.removeAllListeners?.();
+        target.streamPass?.removeAllListeners?.();
+        target.streamPass?.destroy?.();
         proc.stdout?.destroy?.();
         proc.kill?.('SIGTERM');
         proc.removeAllListeners?.();
-        target.stream = null;
+        target.streamProc = null;
+        target.streamPass = null;
+    }
+
+    function disposePreloaded(target: MusicBotData, reason: string) {
+        if (!target.preloaded) return;
+        const { proc, stream, index, item } = target.preloaded;
+        console.log(`Dispose preloaded: index=${index}, title=${item?.title}, reason=${reason}`);
+        proc.stdout?.removeAllListeners?.();
+        proc.stderr?.removeAllListeners?.();
+        stream?.removeAllListeners?.();
+        stream?.destroy?.();
+        proc.stdout?.destroy?.();
+        proc.kill?.('SIGTERM');
+        proc.removeAllListeners?.();
+        target.preloaded = null;
+    }
+
+    async function createYtdlpStream(trackUrl: string, guildId: string) {
+        const ytdlpPath = await getYtDlpPath();
+
+        const proc = spawn(
+            ytdlpPath,
+            [
+                "--no-playlist",
+                "--no-warnings",
+                "--quiet",
+                // Some regions/accounts get 403 unless we specify client and headers.
+                "--user-agent",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+                "--referer",
+                "https://www.youtube.com/",
+                "--extractor-args",
+                "youtube:player_client=android,web",
+                // Newer YouTube extraction may require a JS runtime to avoid missing URLs (SABR).
+                "--js-runtimes",
+                "node",
+                // Force Opus-in-WebM so @discordjs/voice can demux without ffmpeg
+                "-f",
+                // Prefer audio-only; allow fallback to "best" when no audio-only formats exist.
+                // This avoids "Requested format is not available" on some videos.
+                "bestaudio/best",
+                "-o",
+                "-",
+                trackUrl,
+            ],
+            {
+                windowsHide: true,
+                stdio: ["ignore", "pipe", "pipe"],
+            }
+        );
+
+        // quick fail-fast: if yt-dlp exits immediately with non-zero, treat as unplayable
+        await new Promise<void>((resolve, reject) => {
+            const timer = setTimeout(() => resolve(), YT_DLP_EARLY_EXIT_MS);
+            proc.once("exit", (code) => {
+                clearTimeout(timer);
+                if (code && code !== 0) reject(new Error(`yt-dlp exited with code ${code}`));
+                else resolve();
+            });
+            proc.once("error", (err) => {
+                clearTimeout(timer);
+                reject(err);
+            });
+        });
+
+        proc.stderr.on("data", (buf) => {
+            const msg = buf.toString().trim();
+            if (msg) console.error("yt-dlp:", msg);
+        });
+
+        if (!proc.stdout) {
+            proc.kill?.("SIGTERM");
+            throw new Error("yt-dlp stdout unavailable");
+        }
+
+        const passThrough = new PassThrough({ highWaterMark: 1 << 20 });
+        // 避免清理時 destroy 觸發的 Premature close 未處理錯誤
+        passThrough.on("error", (err) => {
+            if (err?.message === "Premature close") return;
+            console.warn("PassThrough error:", err);
+        });
+        proc.stdout.pipe(passThrough);
+
+        const resource = createAudioResource(passThrough, {
+            // Let prism/ffmpeg handle non-opus containers.
+            inputType: StreamType.Arbitrary,
+            inlineVolume: true,
+            metadata: { guildId } as AudioResourceMetadata,
+        } as any);
+        resource.volume?.setVolume(0.1);
+
+        return { proc, stream: passThrough, resource };
     }
 
     async function cleanupAndDestroy(target: MusicBotData, guildId: string, reason: string) {
@@ -345,6 +448,7 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
         target.isCleaning = true;
         console.warn(`Cleaning up resources: ${reason}, guild=${guildId}`);
         stopCurrentStream(target);
+        disposePreloaded(target, "cleanup");
         target.player.stop();
         target.connection.destroy();
         await Promise.allSettled([
@@ -383,88 +487,47 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
 
                 stopCurrentStream(target);
 
-                // yt-dlp standalone exe：不需要 Python（Windows 下載 yt-dlp.exe）
-                const ytdlpPath = await getYtDlpPath();
+                if (target.preloaded && target.preloaded.index === target.currentTrackIndex) {
+                    const preloaded = target.preloaded;
+                    target.preloaded = null;
+                    target.streamProc = preloaded.proc;
+                    target.streamPass = preloaded.stream;
+                    preloaded.stream.resume();
 
-                const proc = spawn(
-                    ytdlpPath,
-                    [
-                        "--no-playlist",
-                        "--no-warnings",
-                        "--quiet",
-                        // Some regions/accounts get 403 unless we specify client and headers.
-                        "--user-agent",
-                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-                        "--referer",
-                        "https://www.youtube.com/",
-                        "--extractor-args",
-                        "youtube:player_client=android,web",
-                        // Newer YouTube extraction may require a JS runtime to avoid missing URLs (SABR).
-                        "--js-runtimes",
-                        "node",
-                        // Force Opus-in-WebM so @discordjs/voice can demux without ffmpeg
-                        "-f",
-                        // Prefer audio-only; allow fallback to "best" when no audio-only formats exist.
-                        // This avoids "Requested format is not available" on some videos.
-                        "bestaudio/best",
-                        "-o",
-                        "-",
-                        trackUrl,
-                    ],
-                    {
-                        windowsHide: true,
-                        stdio: ["ignore", "pipe", "pipe"],
+                    // 小延遲避免過快切歌造成斷管
+                    await delay(STREAM_SWITCH_DELAY_MS);
+                    target.player.play(preloaded.resource);
+                    console.log(`Playing preloaded track: ${preloaded.item.title}\n====================`);
+                } else {
+                    if (target.preloaded) {
+                        disposePreloaded(target, "mismatch with current track");
                     }
-                );
 
-                // quick fail-fast: if yt-dlp exits immediately with non-zero, treat as unplayable
-                await new Promise<void>((resolve, reject) => {
-                    const timer = setTimeout(() => resolve(), YT_DLP_EARLY_EXIT_MS);
-                    proc.once("exit", (code) => {
-                        clearTimeout(timer);
-                        if (code && code !== 0) reject(new Error(`yt-dlp exited with code ${code}`));
-                        else resolve();
-                    });
-                    proc.once("error", (err) => {
-                        clearTimeout(timer);
-                        reject(err);
-                    });
-                });
+                    const { proc, stream, resource } = await createYtdlpStream(trackUrl, id);
+                    target.streamProc = proc as any;
+                    target.streamPass = stream;
 
-                proc.stderr.on("data", (buf) => {
-                    const msg = buf.toString().trim();
-                    if (msg) console.error("yt-dlp:", msg);
-                });
+                    // 小延遲避免過快切歌造成斷管
+                    await delay(STREAM_SWITCH_DELAY_MS);
 
-                target.stream = proc as any;
+                    target.player.play(resource);
+                    console.log(`Playing track: ${item.title}\n====================`);
+                }
 
-                const resource = createAudioResource<AudioResourceMetadata>(proc.stdout, {
-                    // Let prism/ffmpeg handle non-opus containers.
-                    inputType: StreamType.Arbitrary,
-                    inlineVolume: true,
-                    metadata: { guildId: id },
-                });
-                resource.volume?.setVolume(0.1);
-
-                // 小延遲避免過快切歌造成斷管
-                await delay(STREAM_SWITCH_DELAY_MS);
-
-                target.player.play(resource);
-                console.log(`Playing track: ${item.title}\n====================`);
-
-                proc.stdout.on("error", () => {
+                target.streamProc?.stdout?.on("error", () => {
                     // 訊息改為「切下一首」的提示，但實際換歌仍交給 Idle 流程處理
                     console.warn(
                         `播放中斷，準備切下一首: index=${target.currentTrackIndex}, title=${item?.title}`
                     );
                 });
 
-                proc.on("close", (code) => {
+                target.streamProc?.on("close", (code: number) => {
                     if (code && code !== 0) {
                         console.error(`yt-dlp closed with code ${code}`);
                     }
                 });
 
+                void preloadNext(target);
                 return; // 成功開始播放就結束
             } catch (error: unknown) {
                 // 常見：刪除/私人/限制影片、或 yt-dlp 無法取得 opus/webm 來源 → 跳過
@@ -481,6 +544,47 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
         // 播放清單結束：清理資源
         console.log("End of playlist, cleaning up resources...");
         await cleanupAndDestroy(target, id, "playlist ended");
+    }
+
+    async function preloadNext(target: MusicBotData) {
+        if (target.isCleaning) return;
+
+        const startIndex = target.currentTrackIndex + 1;
+        if (startIndex >= target.playlist.items.length) {
+            disposePreloaded(target, "end of playlist");
+            return;
+        }
+
+        if (target.preloaded && target.preloaded.index === startIndex) {
+            return;
+        }
+        if (target.preloaded) {
+            disposePreloaded(target, "index changed");
+        }
+
+        for (let index = startIndex; index < target.playlist.items.length; index++) {
+            const item = target.playlist.items[index];
+            const trackUrl = item?.url?.split('&')[0];
+            if (!trackUrl || shouldSkipItem(item)) {
+                continue;
+            }
+
+            try {
+                const { proc, stream, resource } = await createYtdlpStream(trackUrl, target.guildId);
+                stream.pause();
+                target.preloaded = { index, item, proc, stream, resource };
+                console.log(`Preloaded track: index=${index}, title=${item.title}`);
+                return;
+            } catch (error) {
+                console.error(
+                    `Preload failed, skip: index=${index}, title=${item?.title}`,
+                    error
+                );
+                await delay(TRACK_SKIP_DELAY_MS);
+            }
+        }
+
+        disposePreloaded(target, "no playable next");
     }
 
     async function updatePanel(target: MusicBotData) {
@@ -521,6 +625,18 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
         return undefined;
     }
 
+    // 回覆訊息可能已被刪除或超時，避免 Unknown Message 噴錯
+    async function safeDeleteReply(interaction: ButtonInteraction<CacheType>) {
+        try {
+            if (interaction.replied || interaction.deferred) {
+                await interaction.deleteReply();
+            }
+        } catch (error: any) {
+            if (error?.code === 10008) return;
+            console.warn("deleteReply failed:", error);
+        }
+    }
+
     player.on('stateChange', async (oldState: any, newState: any) => {
         if (newState.status === AudioPlayerStatus.Idle && oldState.status !== AudioPlayerStatus.Idle) {
             const guildId = (oldState.resource.metadata as AudioResourceMetadata)?.guildId;
@@ -548,7 +664,7 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
                 targetData.player.unpause();
                 await targetData.panel.edit({ embeds: [embeds], components: [buttonRowPlayState, buttonRowLink] });
             }
-            setTimeout(() => { mes.delete() }, 500);
+            setTimeout(() => { safeDeleteReply(interaction); }, 500);
         });
 
         playerEventEmitter.on('music_pause', async (interaction: ButtonInteraction<CacheType>) => {
@@ -558,7 +674,7 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
                 targetData.player.pause();
                 await targetData.panel.edit({ embeds: [embeds], components: [buttonRowStopState, buttonRowLink] });
             }
-            setTimeout(() => { mes.delete() }, 500);
+            setTimeout(() => { safeDeleteReply(interaction); }, 500);
         });
 
         playerEventEmitter.on('music_next', async (interaction: ButtonInteraction<CacheType>) => {
@@ -566,6 +682,7 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
             const mes = await interaction.deferReply({ flags: 64 });
             if (targetData.currentTrackIndex + 1 < targetData.playlist.items.length) {
                 targetData.isManualSwitch = true;
+                disposePreloaded(targetData, "manual next");
                 targetData.player.stop();
                 await new Promise(resolve => targetData.player.once(AudioPlayerStatus.Idle, resolve));
                 stopCurrentStream(targetData);
@@ -573,7 +690,7 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
                 await playNext(interaction.guildId as string, targetData);
                 await updatePanel(targetData);
             }
-            setTimeout(() => { mes.delete() }, 500);
+            setTimeout(() => { safeDeleteReply(interaction); }, 500);
         });
 
         playerEventEmitter.on('music_previous', async (interaction: ButtonInteraction<CacheType>) => {
@@ -581,6 +698,7 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
             const mes = await interaction.deferReply({ flags: 64 });
             if (targetData.currentTrackIndex > 0) {
                 targetData.isManualSwitch = true;
+                disposePreloaded(targetData, "manual previous");
                 targetData.player.stop();
                 await new Promise(resolve => targetData.player.once(AudioPlayerStatus.Idle, resolve));
                 stopCurrentStream(targetData);
@@ -588,7 +706,7 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
                 await playNext(interaction.guildId as string, targetData);
                 await updatePanel(targetData);
             }
-            setTimeout(() => { mes.delete() }, 500);
+            setTimeout(() => { safeDeleteReply(interaction); }, 500);
         });
 
         playerEventEmitter.on('music_random', async (interaction: ButtonInteraction<CacheType>) => {
@@ -604,19 +722,21 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
                 remaining.sort(() => Math.random() - 0.5);
                 items.splice(0, items.length, currentItem, ...remaining);
                 targetData.currentTrackIndex = 0;
+                disposePreloaded(targetData, "shuffle");
+                void preloadNext(targetData);
                 console.log(`已隨機後續待播清單: guild=${interaction.guildId}, remain=${remaining.length}`);
             } else {
                 console.log(`隨機清單略過: guild=${interaction.guildId}, count=${items.length}`);
             }
 
-            setTimeout(() => { mes.delete() }, 500);
+            setTimeout(() => { safeDeleteReply(interaction); }, 500);
         });
 
         playerEventEmitter.on('music_exit', async (interaction: ButtonInteraction<CacheType>) => {
             const targetData = activeTrackGuilds.get(interaction.guildId as string) as MusicBotData;
             const mes = await interaction.deferReply({ flags: 64 });
             await cleanupAndDestroy(targetData, interaction.guildId as string, "manual exit");
-            setTimeout(() => { mes.delete() }, 500);
+            setTimeout(() => { safeDeleteReply(interaction); }, 500);
         });
 
         eventRegistered = true;
@@ -636,8 +756,10 @@ class MusicBotData {
         this.connection = connection;
         this.player = player;
         this.currentTrackIndex = 0;
-        this.stream = null;
+        this.streamProc = null;
+        this.streamPass = null;
         this.guildId = guildId;
+        this.preloaded = null;
         this.isManualSwitch = false;
         this.isCleaning = false;
     }
@@ -647,8 +769,10 @@ class MusicBotData {
     public connection: VoiceConnection;
     public player: AudioPlayer;
     public currentTrackIndex: number;
-    public stream: any | null;
+    public streamProc: any | null;
+    public streamPass: PassThrough | null;
     public guildId: string;
+    public preloaded: PreloadedTrack | null;
     public isManualSwitch: boolean;
     public isCleaning: boolean;
 }
