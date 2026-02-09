@@ -1,5 +1,5 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonInteraction, CacheType, ChannelType, ChatInputCommandInteraction, EmbedBuilder, GuildMember, Message, TextChannel } from "discord.js";
-import { AudioPlayer, AudioPlayerStatus, StreamType, VoiceConnection, createAudioPlayer, createAudioResource, joinVoiceChannel } from "@discordjs/voice";
+import { AudioPlayer, AudioPlayerStatus, StreamType, VoiceConnection, VoiceConnectionStatus, createAudioPlayer, createAudioResource, entersState, joinVoiceChannel } from "@discordjs/voice";
 import { createSlashCommand } from "../../command";
 import { SlashCommand, CommandOption, OptionDataType, CommandOptionType } from "../../type";
 import { addmusicbotChannel, addmusicbotErrorURLFormat, addmusicbotSuccess, addmusicbotUsed, addmusicbotUserExist, musicPanel } from "../../announcement";
@@ -43,6 +43,8 @@ interface PreloadedTrack {
 const STREAM_SWITCH_DELAY_MS = 250;
 const TRACK_SKIP_DELAY_MS = 150;
 const YT_DLP_EARLY_EXIT_MS = 600;
+const VOICE_RECONNECT_DELAY_MS = 2000;
+const VOICE_READY_TIMEOUT_MS = 8000;
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -326,10 +328,51 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
 
     const musicBotData = new MusicBotData(playlist, musicChannel, panel, connection, player, data.guildId as string);
     activeTrackGuilds.set(data.guildId as string, musicBotData);
-    connection.on("error", async (error) => {
-        console.error("VoiceConnection error:", error);
-        await cleanupAndDestroy(musicBotData, data.guildId as string, "voice connection error");
-    });
+
+    const attachConnectionHandlers = (target: MusicBotData, conn: VoiceConnection) => {
+        conn.on("error", async (error) => {
+            console.error("VoiceConnection error:", error);
+            await attemptReconnect(target, error);
+        });
+    };
+
+    const attemptReconnect = async (target: MusicBotData, error: unknown) => {
+        if (target.isCleaning || target.isReconnecting) return;
+        target.isReconnecting = true;
+        try {
+            while (!target.isCleaning) {
+                target.reconnectAttempts += 1;
+                console.warn(
+                    `Voice reconnect attempt ${target.reconnectAttempts}`
+                );
+
+                let newConnection: VoiceConnection | null = null;
+                try {
+                    await delay(VOICE_RECONNECT_DELAY_MS);
+                    newConnection = joinVoiceChannel({
+                        channelId: target.connection.joinConfig.channelId ?? voiceChannel.id,
+                        guildId: target.connection.joinConfig.guildId ?? voiceChannel.guild.id,
+                        adapterCreator: voiceChannel.guild.voiceAdapterCreator,
+                    });
+                    newConnection.subscribe(target.player);
+                    attachConnectionHandlers(target, newConnection);
+
+                    await entersState(newConnection, VoiceConnectionStatus.Ready, VOICE_READY_TIMEOUT_MS);
+                    target.connection.destroy();
+                    target.connection = newConnection;
+                    target.reconnectAttempts = 0;
+                    break;
+                } catch (reconnectError) {
+                    console.error("Voice reconnect failed:", reconnectError);
+                    newConnection?.destroy();
+                }
+            }
+        } finally {
+            target.isReconnecting = false;
+        }
+    };
+
+    attachConnectionHandlers(musicBotData, connection);
 
     // 先嘗試開始播放（可能會跳過不可播放影片），再更新面板
     await playNext(data.guildId as string, musicBotData);
@@ -760,6 +803,8 @@ class MusicBotData {
         this.streamPass = null;
         this.guildId = guildId;
         this.preloaded = null;
+        this.reconnectAttempts = 0;
+        this.isReconnecting = false;
         this.isManualSwitch = false;
         this.isCleaning = false;
     }
@@ -773,6 +818,8 @@ class MusicBotData {
     public streamPass: PassThrough | null;
     public guildId: string;
     public preloaded: PreloadedTrack | null;
+    public reconnectAttempts: number;
+    public isReconnecting: boolean;
     public isManualSwitch: boolean;
     public isCleaning: boolean;
 }
