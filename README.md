@@ -1,21 +1,24 @@
 # Discord Bot
 
-This is a Discord bot developed using TypeScript and integrated with the YouTube API v3.
+A Discord bot built with TypeScript, integrated with YouTube Data API v3 and yt-dlp for music playback.
 
 ## Features
 
 - Interacts with Discord servers
-- Uses YouTube API v3 for operations
-- Supports Slash Commands and Context Menu Commands to help organize servers
-- Utilizes SQLite for YouTube-related data storage
+- Uses YouTube Data API v3 to fetch video and playlist metadata
+- Uses yt-dlp to stream YouTube audio (no Python required)
+- Supports Slash Commands, Context Menu Commands, and Button interactions
+- Voice channel music playback with control buttons
+- Uses ffmpeg-static for audio processing
+- Supports localized commands (including Traditional Chinese)
 
 ## Events
 
-This bot listens to and processes the following events:
+The bot listens to and processes the following events:
 
 - `clientReady`: Triggered when the bot starts and is ready.
 - `guildCreate`: Triggered when the bot joins a new server.
-- `interactionCreate`: Triggered when a Slash Command or Context Menu interaction occurs.
+- `interactionCreate`: Triggered when a Slash Command, Context Menu, or Button interaction occurs.
 - `messageCreate`: Triggered when a new message is sent.
 - `messageDelete`: Triggered when a message is deleted.
 - `messageReactionAdd`: Triggered when a user adds a reaction to a message.
@@ -24,34 +27,42 @@ This bot listens to and processes the following events:
 
 ## Slash Commands
 
-This bot supports the following Slash Commands:
-
-- `/addMusicBot`: Adds a music bot to the server.
-- `/deleteBotChannel`: Deletes a specified bot channel.
-- `/ping`: Tests the bot's latency.
-- `/purge`: Deletes multiple messages in a channel.
-- `/subscribe`: Subscribes to a YouTube channel, checking every hour for new videos and sending notifications if new videos are found.
+| Command            | Description                                                                           |
+| ------------------ | ------------------------------------------------------------------------------------- |
+| `/addmusicbot`     | Adds a music bot to your voice channel; supports YouTube playlist or single video URL |
+| `/changesevername` | Changes the current server name (subject to cooldown)                                 |
+| `/purge`           | Deletes a specified number of messages (up to 100); optionally filter by member       |
 
 ## Context Menu Commands
 
-This bot supports the following Context Menu Commands:
+| Command           | Description               |
+| ----------------- | ------------------------- |
+| `contextmenutest` | Test Context Menu command |
 
-- `unsubscribe`: Unsubscribes from YouTube channel notifications.
+## Music Control Buttons
+
+After `/addmusicbot` creates the music panel, the following buttons control playback:
+
+- Previous
+- Play / Pause
+- Next
+- Leave voice channel
+- Shuffle
 
 ## How to Add New Commands or Events
 
-To add new Context Menu Commands, events, or Slash Commands to this project, follow these steps:
+To add new Context Menu Commands, events, or Slash Commands:
 
 1. **Navigate to the corresponding folder:**
    - **Context Menu Commands:** `src/contextMenuCommands/`
    - **Events:** `src/events/`
    - **Slash Commands:** `src/slashCommands/`
 
-2. **Add the new functionality:**
-   - Create a new folder or file within the appropriate directory following the existing naming conventions and structure.
-   - Implement the corresponding feature in the newly created file.
+2. **Implement the feature:**
+   - Create a new folder or file within the appropriate directory following existing naming and structure.
+   - Implement the feature in the new file.
 
-This project structure allows easy expansion of bot functionalities while maintaining organization and code maintainability.
+This project structure allows easy expansion while keeping the code organized and maintainable.
 
 ## Installation
 
@@ -70,34 +81,59 @@ This project structure allows easy expansion of bot functionalities while mainta
 
 3. **Configure environment variables:**
 
-   Copy `.env.example` to `.env` and fill in the following details:
+   Create a `.env` file in the project root with:
 
-   ```
-   DISCORD_TOKEN=
-   APPLICATION_ID=
-   YOUTUBE_V3_API=
-   YOUTUBE_V3_API2=
-   YOUTUBE_V3_URL=
+   ```env
+   DISCORD_TOKEN=your_discord_bot_token
+   APPLICATION_ID=your_application_id
+   YOUTUBE_V3_API=your_youtube_data_api_v3_key
    ```
 
 ## Usage
 
-Node version (required)
+### Node version
+
 ```
->= 20 (tested with 20.20.0)
+>= 20 (recommended 20; tested with 20.20.0)
 ```
 
-Python
-```
-Not required
-```
-
-Run the following command to start the bot:
+### Start the bot
 
 ```bash
 npm run start
 ```
 
-## Note
+### Development mode (with hot reload)
 
-This markdown file was initially generated with the assistance of ChatGPT, but has been refined and supplemented based on my input to ensure accuracy and completeness. If anything is unclear, please refer to the internal code for further details.
+```bash
+npm run dev
+```
+
+### Build
+
+```bash
+npm run build
+```
+
+### Package as executable (Windows x64)
+
+```bash
+npm run package
+```
+
+Output is placed in the `pkg` folder.
+
+## Dependencies
+
+- **discord.js** — Discord API interaction
+- **@discordjs/voice** — Voice connection and playback
+- **yt-dlp-wrap** — Downloads and uses yt-dlp binary to stream YouTube audio
+- **ffmpeg-static** — Audio transcoding
+- **axios** — HTTP requests (including YouTube API)
+- **sharp** — Image processing (music panel thumbnails and dominant color)
+- **dotenv** — Environment variable loading
+
+## Notes
+
+- The first run of `/addmusicbot` may have a short delay while yt-dlp is downloaded.
+- If anything here conflicts with the implementation, refer to the source code for accuracy.

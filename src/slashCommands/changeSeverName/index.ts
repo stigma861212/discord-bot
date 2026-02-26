@@ -1,4 +1,4 @@
-import { ChatInputCommandInteraction } from "discord.js";
+import { ChatInputCommandInteraction, MessageFlags } from "discord.js";
 import { createSlashCommand } from "../../command";
 import { SlashCommand, CommandOption, CommandOptionType, OptionDataType } from "../../type";
 
@@ -51,15 +51,16 @@ if (initCommandInfo.descriptionLocalizations) {
 
 /**Command action */
 export const action = async (data: ChatInputCommandInteraction, options: Array<OptionDataType>) => {
+    await data.deferReply({ flags: MessageFlags.Ephemeral });
+
     console.log("options", options);
 
     const oldName = data.guild?.name;
     const newName = options[0] as string;
     await data.guild?.setName(newName);
 
-    data.reply({
+    await data.editReply({
         content: `伺服器名稱已更改\n ${oldName} -> ${options[0]}`,
-        flags: 64,
     });
 };
 

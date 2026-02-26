@@ -1,4 +1,4 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonInteraction, CacheType, ChannelType, ChatInputCommandInteraction, EmbedBuilder, GuildMember, Message, TextChannel } from "discord.js";
+import { ActionRowBuilder, ButtonBuilder, ButtonInteraction, CacheType, ChannelType, ChatInputCommandInteraction, EmbedBuilder, GuildMember, Message, MessageFlags, TextChannel } from "discord.js";
 import { AudioPlayer, AudioPlayerStatus, StreamType, VoiceConnection, VoiceConnectionStatus, createAudioPlayer, createAudioResource, entersState, joinVoiceChannel } from "@discordjs/voice";
 import { createSlashCommand } from "../../command";
 import { SlashCommand, CommandOption, OptionDataType, CommandOptionType } from "../../type";
@@ -153,6 +153,9 @@ if (initCommandInfo.descriptionLocalizations) {
 
 /**Command action */
 export const action = async (data: ChatInputCommandInteraction, options: Array<OptionDataType>) => {
+    // 必須在 3 秒內回應，先 defer 以延長等待時間（避免大型播放清單載入逾時）
+    await data.deferReply({ flags: MessageFlags.Ephemeral });
+
     let playlist: Playlist;
     let playlistURL: string = options[0] as string;
 
@@ -246,9 +249,8 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
 
     } catch (error) {
         console.error("Failed to fetch playlist", error);
-        await data.reply({
+        await data.editReply({
             content: addmusicbotErrorURLFormat + '\n\n請確認：\n1. 網址格式正確\n2. 播放清單為公開或未列出\n3. 播放清單包含影片\n4. YouTube Data API 金鑰已設定 (YOUTUBE_V3_API)',
-            flags: 64,
         });
         return;
     }
@@ -257,26 +259,24 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
 
     const voiceChannel = (data.member as GuildMember).voice?.channel;
     if (!voiceChannel) {
-        await data.reply({
+        await data.editReply({
             content: addmusicbotUserExist,
-            flags: 64,
         });
         return;
     } else {
         const botMember = data.guild!.members.me!;
 
         if (botMember.voice.channel) {
-            await data.reply({
+            await data.editReply({
                 content: addmusicbotUsed,
-                flags: 64,
             });
             return;
         }
 
-        await data.reply({
-            content: addmusicbotSuccess,
-            flags: 64,
-        });
+        // 不 await，避免 editReply 阻擋或拋錯時中斷音樂設定流程
+        void data.editReply({ content: addmusicbotSuccess }).catch((err) =>
+            console.warn("editReply 成功訊息失敗（音樂仍會播放）:", err)
+        );
     }
 
     const buttonRowPlayState = buildButtonRow(
@@ -635,7 +635,14 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
             const trackName = target.playlist.items[target.currentTrackIndex].title;
             const authorName = target.playlist.items[target.currentTrackIndex].author?.name;
             const bestThumbnail = target.playlist.items[target.currentTrackIndex].thumbnail as string;
-            const color = await getDominantColorFromUrl(bestThumbnail);
+            let color: [number, number, number] = [0x58, 0x65, 0xF2]; // 預設 Discord 藍
+            if (bestThumbnail && isValidHttpUrl(bestThumbnail)) {
+                try {
+                    color = await getDominantColorFromUrl(bestThumbnail);
+                } catch (e) {
+                    console.warn("getDominantColorFromUrl 失敗，使用預設顏色:", e);
+                }
+            }
 
             embeds = new EmbedBuilder()
                 .setTitle(trackName)
@@ -702,7 +709,7 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
     if (!eventRegistered) {
         playerEventEmitter.on("music_play", async (interaction: ButtonInteraction<CacheType>) => {
             const targetData = activeTrackGuilds.get(interaction.guildId as string) as MusicBotData;
-            const mes = await interaction.deferReply({ flags: 64 });
+            const mes = await interaction.deferReply({ flags: MessageFlags.Ephemeral });
             if (targetData.player.state.status === AudioPlayerStatus.Paused) {
                 targetData.player.unpause();
                 await targetData.panel.edit({ embeds: [embeds], components: [buttonRowPlayState, buttonRowLink] });
@@ -712,7 +719,7 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
 
         playerEventEmitter.on('music_pause', async (interaction: ButtonInteraction<CacheType>) => {
             const targetData = activeTrackGuilds.get(interaction.guildId as string) as MusicBotData;
-            const mes = await interaction.deferReply({ flags: 64 });
+            const mes = await interaction.deferReply({ flags: MessageFlags.Ephemeral });
             if (targetData.player.state.status === AudioPlayerStatus.Playing) {
                 targetData.player.pause();
                 await targetData.panel.edit({ embeds: [embeds], components: [buttonRowStopState, buttonRowLink] });
@@ -722,7 +729,7 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
 
         playerEventEmitter.on('music_next', async (interaction: ButtonInteraction<CacheType>) => {
             const targetData = activeTrackGuilds.get(interaction.guildId as string) as MusicBotData;
-            const mes = await interaction.deferReply({ flags: 64 });
+            const mes = await interaction.deferReply({ flags: MessageFlags.Ephemeral });
             if (targetData.currentTrackIndex + 1 < targetData.playlist.items.length) {
                 targetData.isManualSwitch = true;
                 disposePreloaded(targetData, "manual next");
@@ -738,7 +745,7 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
 
         playerEventEmitter.on('music_previous', async (interaction: ButtonInteraction<CacheType>) => {
             const targetData = activeTrackGuilds.get(interaction.guildId as string) as MusicBotData;
-            const mes = await interaction.deferReply({ flags: 64 });
+            const mes = await interaction.deferReply({ flags: MessageFlags.Ephemeral });
             if (targetData.currentTrackIndex > 0) {
                 targetData.isManualSwitch = true;
                 disposePreloaded(targetData, "manual previous");
@@ -754,7 +761,7 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
 
         playerEventEmitter.on('music_random', async (interaction: ButtonInteraction<CacheType>) => {
             const targetData = activeTrackGuilds.get(interaction.guildId as string) as MusicBotData;
-            const mes = await interaction.deferReply({ flags: 64 });
+            const mes = await interaction.deferReply({ flags: MessageFlags.Ephemeral });
             const currentIndex = targetData.currentTrackIndex;
             const items = targetData.playlist.items;
 
@@ -777,7 +784,7 @@ export const action = async (data: ChatInputCommandInteraction, options: Array<O
 
         playerEventEmitter.on('music_exit', async (interaction: ButtonInteraction<CacheType>) => {
             const targetData = activeTrackGuilds.get(interaction.guildId as string) as MusicBotData;
-            const mes = await interaction.deferReply({ flags: 64 });
+            const mes = await interaction.deferReply({ flags: MessageFlags.Ephemeral });
             await cleanupAndDestroy(targetData, interaction.guildId as string, "manual exit");
             setTimeout(() => { safeDeleteReply(interaction); }, 500);
         });
