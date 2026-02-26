@@ -1,6 +1,13 @@
 {
-  "name": "discord-bot",
+  "name": "@stigma861212/discord-bot",
   "version": "1.0.0",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "files": [
+    "dist",
+    "text"
+  ],
   "main": "dist/main.js",
   "bin": "dist/main.js",
   "scripts": {
@@ -16,7 +23,7 @@
     "name": "stigma861212",
     "url": "https://github.com/stigma861212"
   },
-  "description": "",
+  "description": "A Discord bot that plays YouTube video music and provides some server commands.",
   "dependencies": {
     "@discordjs/voice": "^0.18.0",
     "axios": "^1.7.9",
@@ -33,6 +40,7 @@
   "devDependencies": {
     "@types/node": "^22.7.0",
     "@types/sharp": "^0.32.0",
+    "esbuild": "^0.27.3",
     "pkg": "^5.8.1",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.6.2"
@@ -41,7 +49,7 @@
     "targets": [
       "node18-win-x64"
     ],
-    "outputPath": "pkg",
+    "outputPath": "discord-bot",
     "scripts": [
       "dist/**/*.js"
     ],

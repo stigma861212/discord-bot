@@ -121,7 +121,7 @@ npm run build
 npm run package
 ```
 
-Output is placed in the `pkg` folder.
+Output is placed in the `discord-bot` folder.
 
 ## Dependencies
 

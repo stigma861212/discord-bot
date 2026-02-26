@@ -5,7 +5,10 @@ import YTDlpWrap from "yt-dlp-wrap";
 let ytDlpPathPromise: Promise<string> | null = null;
 
 function getBinaryPath() {
-  const cacheDir = path.join(process.cwd(), ".cache", "yt-dlp");
+  const baseDir = (process as { pkg?: unknown }).pkg
+    ? path.dirname(process.execPath)
+    : process.cwd();
+  const cacheDir = path.join(baseDir, ".cache", "yt-dlp");
   const binName = process.platform === "win32" ? "yt-dlp.exe" : "yt-dlp";
   return {
     cacheDir,

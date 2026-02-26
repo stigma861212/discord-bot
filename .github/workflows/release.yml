@@ -1,0 +1,124 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [main]
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write  # 建立 Release、上傳 assets 需要
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest  # 使用 Windows 以正確建置 node18-win-x64 目標
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "yarn"
+
+      - name: Get version
+        id: version
+        shell: pwsh
+        run: |
+          $ver = (Get-Content package.json | ConvertFrom-Json).version
+          $tag = "v$ver"
+          echo "tag=$tag" >> $env:GITHUB_OUTPUT
+          echo "version=$ver" >> $env:GITHUB_OUTPUT
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build
+        run: yarn run build
+
+      - name: Package with pkg
+        run: yarn run package
+        env:
+          CI: true
+
+      - name: Prepare release assets
+        shell: pwsh
+        run: |
+          Copy-Item .example.env discord-bot\.env.example -ErrorAction SilentlyContinue
+          $tag = "${{ steps.version.outputs.tag }}"
+          if ("${{ github.event_name }}" -eq "release") { $tag = "${{ github.ref_name }}" }
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") { $tag = "run-${{ github.run_id }}" }
+          Compress-Archive -Path discord-bot\* -DestinationPath "discord-bot-$tag.zip" -Force
+
+      - name: Upload artifact (workflow_dispatch)
+        uses: actions/upload-artifact@v4
+        with:
+          name: discord-bot-${{ github.run_id }}
+          path: discord-bot-*.zip
+        if: github.event_name == 'workflow_dispatch'
+
+      - name: Create/Update Release
+        uses: softprops/action-gh-release@v2
+        with:
+          # release 事件用既有 tag；push 事件用 package.json 版本建立 tag
+          tag_name: ${{ github.event_name == 'release' && github.ref_name || steps.version.outputs.tag }}
+          name: ${{ github.event_name == 'release' && github.ref_name || steps.version.outputs.tag }}
+          files: discord-bot-*.zip
+          generate_release_notes: true
+          draft: false
+          replace_assets: true  # push 更新時覆蓋舊的 zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        if: github.event_name == 'push' || github.event_name == 'release'
+
+      - name: Bump version for next release (push to main only)
+        if: success() && github.event_name == 'push'
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          yarn version --no-git-tag-version --patch
+          git add package.json
+          git diff --staged --quiet || git commit -m "chore: bump version [skip ci]"
+          git push
+
+  # 發佈到 GitHub Packages (npm registry)
+  publish-package:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "yarn"
+          registry-url: "https://npm.pkg.github.com"
+          scope: "@stigma861212"
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Set version from release tag
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/}"
+          VERSION="${VERSION#v}"  # 移除可能的前綴 v
+          yarn version --no-git-tag-version --new-version "$VERSION"
+        if: github.event_name == 'release'
+
+      - name: Build
+        run: yarn run build
+
+      - name: Publish to GitHub Packages
+        run: yarn publish --non-interactive --no-git-tag-version
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        if: github.event_name == 'release'
