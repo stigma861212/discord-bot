@@ -1,6 +1,6 @@
 {
   "name": "@stigma861212/discord-bot",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"
   },
